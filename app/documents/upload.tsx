@@ -17,12 +17,13 @@ import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
 import { appendFileToFormData } from "@/api/form-file";
+import { showAlert } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 export default function UploadDocumentsScreen() {
   const { bookingNumber } = useLocalSearchParams<{
@@ -83,7 +84,7 @@ export default function UploadDocumentsScreen() {
     if (result.success) {
       setUploadedLabels((prev) => new Set(prev).add(label));
     } else {
-      Alert.alert("Upload Failed", result.message || "Please try again.");
+      showAlert("Upload Failed", result.message || "Please try again.");
     }
   };
 

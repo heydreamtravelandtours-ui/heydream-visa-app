@@ -2,12 +2,12 @@ import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { HOME_ROUTE } from "@/constants/routes";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
+import { showAlert } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -28,7 +28,7 @@ export default function LoginScreen() {
 
   const handleLogin = async () => {
     if (!email.trim() || !password) {
-      Alert.alert("Missing info", "Enter your email and password.");
+      showAlert("Missing info", "Enter your email and password.");
       return;
     }
     setIsSubmitting(true);
@@ -37,7 +37,7 @@ export default function LoginScreen() {
     if (result.success) {
       router.replace(HOME_ROUTE);
     } else {
-      Alert.alert("Log In Failed", result.message || "Please try again.");
+      showAlert("Log In Failed", result.message || "Please try again.");
     }
   };
 

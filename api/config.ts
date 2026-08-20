@@ -53,4 +53,5 @@ export const API_ENDPOINTS = {
   // / HD_BOOKING_COUNT_VISA_ONLY so this app only ever sees visa-scoped rows.
   NOTIFICATIONS: `${API_BASE_URL}/visa/api/notifications-api.php`,
   BOOKING_COUNT: `${API_BASE_URL}/visa/api/get-booking-count.php`,
+  BOOKING_CHAT: `${API_BASE_URL}/visa/api/booking-chat.php`,
 } as const;

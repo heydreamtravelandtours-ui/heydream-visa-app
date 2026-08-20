@@ -17,10 +17,11 @@
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { GOOGLE_WEB_CLIENT_ID } from "@/api/config";
+import { showAlert } from "@/utils/cross-alert";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
 import { useEffect, useState } from "react";
-import { ActivityIndicator, Alert, Image, Pressable, StyleSheet, Text } from "react-native";
+import { ActivityIndicator, Image, Pressable, StyleSheet, Text } from "react-native";
 
 WebBrowser.maybeCompleteAuthSession();
 
@@ -45,7 +46,7 @@ export function GoogleSignInButton({ onSuccess }: { onSuccess: () => void }) {
       if (result.success) {
         onSuccess();
       } else {
-        Alert.alert("Google Sign-In Failed", result.message || "Please try again.");
+        showAlert("Google Sign-In Failed", result.message || "Please try again.");
       }
     })();
     // eslint-disable-next-line react-hooks/exhaustive-deps

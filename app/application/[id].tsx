@@ -1,25 +1,32 @@
 // app/application/[id].tsx
-// Booking status + payment resubmission. Deliberately has NO cancel
-// button: User Account/api/cancel-flight-booking.php only allows
-// self-cancel for 'Flight Booking' and 'Cruise Vacation' bookings (see its
-// own type check) -- visa bookings can't self-cancel there by design, so a
-// cancel button here would just always fail. Same limitation the visa
-// subdomain's own profile.php silently runs into today.
+// Booking status + payment resubmission, now carrying every field the
+// website's visa/profile.php booking card shows (email, phone, partner
+// notes, payment proof, traveler count, renewal/visa-type badges, and a
+// real Chat/Email/Phone contact block) -- previously this screen silently
+// dropped all of that even though get-my-visa-bookings.php already returns
+// it. Deliberately still has NO cancel button: User Account/api/
+// cancel-flight-booking.php only allows self-cancel for 'Flight Booking'
+// and 'Cruise Vacation' bookings -- visa bookings can't self-cancel there
+// by design, matching the "Contact staff for cancellation" note the
+// website itself shows instead of a cancel button.
 
 import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
+import { API_BASE_URL } from "@/api/config";
 import { appendFileToFormData } from "@/api/form-file";
+import { showAlert } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
+  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -27,16 +34,25 @@ import {
   View,
 } from "react-native";
 
+const SUPPORT_EMAIL = "heydreamtravelandtours@gmail.com";
+const SUPPORT_PHONE = "0945 776 4140";
+
 interface Booking {
   booking_number: string;
   package_name: string;
   package_duration: string;
   travel_date: string;
+  number_of_travelers: number;
   total_amount: number;
   currency: string;
   booking_status: string;
   payment_status: string;
   visa_status: string;
+  visa_type_selected: string | null;
+  is_renewal: number;
+  email: string;
+  phone: string;
+  admin_notes: string | null;
   payment_proof: string | null;
   partner_approved: number;
   required_documents: string;
@@ -65,11 +81,11 @@ interface TrackingStep {
   state: StepState;
 }
 
-// Mirrors visa/profile.php's showTracking() 4-step progress tracker
-// (Booking Received -> Documents -> Payment -> Ready for Travel), derived
-// from the same booking fields rather than any persisted event log --
-// there is no per-event history table for a customer to read (confirmed
-// while investigating this repo).
+// Mirrors visa/profile.php's showTracking() step logic, derived from the
+// same booking fields rather than any persisted event log -- there is no
+// per-event history table for a customer to read (confirmed while
+// investigating this repo). admin_notes IS a running text log though (see
+// the "Notes from your travel partner" card below), just not step-shaped.
 function getTrackingSteps(b: Booking): TrackingStep[] {
   if (b.booking_status === "cancelled") {
     return [
@@ -215,7 +231,7 @@ export default function ApplicationDetailScreen() {
   const pickProof = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert("Permission needed", "Allow photo library access to attach your receipt.");
+      showAlert("Permission needed", "Allow photo library access to attach your receipt.");
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -229,7 +245,7 @@ export default function ApplicationDetailScreen() {
 
   const submitPayment = async () => {
     if (!paymentReference.trim() || !proofUri) {
-      Alert.alert("Missing info", "Enter your payment reference and attach a receipt photo.");
+      showAlert("Missing info", "Enter your payment reference and attach a receipt photo.");
       return;
     }
     setIsSubmittingPayment(true);
@@ -247,12 +263,12 @@ export default function ApplicationDetailScreen() {
     setIsSubmittingPayment(false);
 
     if (result.success) {
-      Alert.alert("Payment Submitted", "We'll verify your payment shortly.");
+      showAlert("Payment Submitted", "We'll verify your payment shortly.");
       await load();
       setPaymentReference("");
       setProofUri(null);
     } else {
-      Alert.alert("Submission Failed", result.message || "Please try again.");
+      showAlert("Submission Failed", result.message || "Please try again.");
     }
   };
 
@@ -277,6 +293,7 @@ export default function ApplicationDetailScreen() {
   }
 
   const s = statusStyle(booking.booking_status);
+  const paymentProofUrl = booking.payment_proof ? `${API_BASE_URL}/${booking.payment_proof}` : null;
 
   return (
     <ThemedView style={styles.container}>
@@ -284,8 +301,21 @@ export default function ApplicationDetailScreen() {
       <ScreenHeader title={booking.package_name} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
         <View style={styles.titleRow}>
-          <View>
+          <View style={{ flex: 1 }}>
             <ThemedText style={styles.subtitle}>{booking.booking_number}</ThemedText>
+            <View style={styles.badgeRow}>
+              {!!booking.is_renewal && (
+                <View style={[styles.tag, styles.tagRenewal]}>
+                  <Ionicons name="sync" size={11} color={Colors.primary} />
+                  <ThemedText style={styles.tagRenewalText}>Renewal</ThemedText>
+                </View>
+              )}
+              {!!booking.visa_type_selected && (
+                <View style={styles.tag}>
+                  <ThemedText style={styles.tagText}>{booking.visa_type_selected}</ThemedText>
+                </View>
+              )}
+            </View>
           </View>
           <View style={[styles.statusPill, { backgroundColor: s.bg }]}>
             <ThemedText style={[styles.statusText, { color: s.fg }]}>
@@ -299,6 +329,8 @@ export default function ApplicationDetailScreen() {
         </View>
 
         <View style={styles.section}>
+          <Row label="Applicant" value={`${booking.email}${booking.phone ? " • " + booking.phone : ""}`} />
+          <Row label="Travelers" value={`${booking.number_of_travelers} Guest(s)`} />
           <Row label="Visa Status" value={booking.visa_status} />
           <Row label="Payment" value={booking.payment_status} />
           <Row label="Processing" value={booking.package_duration} />
@@ -308,6 +340,34 @@ export default function ApplicationDetailScreen() {
             last
           />
         </View>
+
+        {!!booking.payment_proof && (
+          <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Payment Proof Submitted</ThemedText>
+            <Pressable
+              style={styles.receiptRow}
+              onPress={() => paymentProofUrl && Linking.openURL(paymentProofUrl)}
+            >
+              {paymentProofUrl && (
+                <Image source={{ uri: paymentProofUrl }} style={styles.receiptThumb} contentFit="cover" />
+              )}
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.secondaryButtonText}>View Receipt Screenshot</ThemedText>
+              </View>
+              <Ionicons name="open-outline" size={18} color={Colors.primary} />
+            </Pressable>
+          </View>
+        )}
+
+        {!!booking.admin_notes && (
+          <View style={[styles.section, styles.notesSection]}>
+            <View style={styles.cardTitleRow}>
+              <Ionicons name="chatbox-ellipses" size={16} color={Colors.accent} />
+              <ThemedText style={styles.sectionTitle}>Notes From Your Travel Partner</ThemedText>
+            </View>
+            <ThemedText style={styles.notesText}>{booking.admin_notes}</ThemedText>
+          </View>
+        )}
 
         {requirements.length > 0 && (
           <View style={styles.section}>
@@ -373,6 +433,39 @@ export default function ApplicationDetailScreen() {
             </ThemedText>
           </View>
         )}
+
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Questions About This Booking?</ThemedText>
+          <ThemedText style={styles.helperText}>
+            This trip is handled directly by HeyDream Travel and Tours.
+          </ThemedText>
+          <Pressable
+            style={[styles.secondaryButton, styles.chatButton]}
+            onPress={() =>
+              router.push({ pathname: "/chat/[bookingNumber]", params: { bookingNumber: booking.booking_number } })
+            }
+          >
+            <Ionicons name="chatbubbles-outline" size={16} color={Colors.white} />
+            <ThemedText style={styles.chatButtonText}>Chat with HeyDream</ThemedText>
+          </Pressable>
+          <View style={styles.contactRow}>
+            <Pressable
+              style={styles.contactPill}
+              onPress={() => Linking.openURL(`mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent("Booking " + booking.booking_number)}`)}
+            >
+              <Ionicons name="mail-outline" size={14} color={Colors.primary} />
+              <ThemedText style={styles.contactPillText}>Email</ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.contactPill}
+              onPress={() => Linking.openURL(`tel:${SUPPORT_PHONE.replace(/\s/g, "")}`)}
+            >
+              <Ionicons name="call-outline" size={14} color={Colors.primary} />
+              <ThemedText style={styles.contactPillText}>{SUPPORT_PHONE}</ThemedText>
+            </Pressable>
+          </View>
+          <ThemedText style={styles.cancelNote}>Contact staff for cancellation</ThemedText>
+        </View>
       </ScrollView>
     </ThemedView>
   );
@@ -392,8 +485,13 @@ const styles = StyleSheet.create({
   centered: { flex: 1, backgroundColor: Colors.white },
   error: { color: "#B00020", textAlign: "center", padding: 24 },
   scrollContent: { padding: 20, paddingBottom: 60 },
-  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
-  subtitle: { color: Colors.text, fontSize: 13 },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20 },
+  subtitle: { color: Colors.text, fontSize: 13, marginBottom: 6 },
+  badgeRow: { flexDirection: "row", gap: 6, flexWrap: "wrap" },
+  tag: { backgroundColor: "#E8F0FE", borderRadius: 10, paddingHorizontal: 9, paddingVertical: 3 },
+  tagText: { color: Colors.primary, fontSize: 10.5, fontWeight: "700" },
+  tagRenewal: { flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: "#FFF3E0" },
+  tagRenewalText: { color: Colors.primary, fontSize: 10.5, fontWeight: "700" },
   statusPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
   statusText: { fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
   section: {
@@ -402,6 +500,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 20,
   },
+  notesSection: { backgroundColor: "#FFF8E1" },
+  cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
+  notesText: { color: Colors.dark, lineHeight: 20, fontSize: 13 },
   sectionTitle: { marginBottom: 12, fontSize: 17, fontWeight: "800", color: Colors.dark },
   row: {
     flexDirection: "row",
@@ -411,7 +512,9 @@ const styles = StyleSheet.create({
     borderBottomColor: "#E5E9F0",
   },
   rowLabel: { color: Colors.text },
-  rowValue: { fontWeight: "700", color: Colors.dark },
+  rowValue: { fontWeight: "700", color: Colors.dark, flexShrink: 1, textAlign: "right" },
+  receiptRow: { flexDirection: "row", alignItems: "center", gap: 12 },
+  receiptThumb: { width: 48, height: 48, borderRadius: 8, backgroundColor: Colors.lightGray },
   requirementRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
   requirementDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent, marginTop: 7 },
   requirement: { flex: 1, color: Colors.text, lineHeight: 20 },
@@ -440,6 +543,22 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   secondaryButtonText: { color: Colors.primary, fontWeight: "700" },
+  chatButton: { backgroundColor: Colors.primary, borderColor: Colors.primary, marginTop: 0 },
+  chatButtonText: { color: Colors.white, fontWeight: "700" },
+  contactRow: { flexDirection: "row", gap: 8, marginTop: 10 },
+  contactPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    backgroundColor: Colors.white,
+  },
+  contactPillText: { color: Colors.dark, fontSize: 12.5, fontWeight: "600" },
+  cancelNote: { color: Colors.text, fontSize: 12, marginTop: 10, textAlign: "right" },
   submitButton: {
     backgroundColor: Colors.gold,
     borderRadius: 14,
@@ -460,6 +579,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#FFF3E0",
     borderRadius: 12,
     padding: 14,
+    marginBottom: 20,
   },
   noticeText: { flex: 1, color: "#8A6100", lineHeight: 19, fontSize: 13 },
   tracker: {},

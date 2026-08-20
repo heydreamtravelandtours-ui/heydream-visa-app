@@ -143,3 +143,15 @@ export function markAllNotificationsRead() {
 export function getBookingCount() {
   return apiGet(API_ENDPOINTS.BOOKING_COUNT);
 }
+
+export function openBookingChat(bookingNumber: string) {
+  return apiGet(`${API_ENDPOINTS.BOOKING_CHAT}?action=open&booking_number=${encodeURIComponent(bookingNumber)}`);
+}
+
+export function sendBookingChatMessage(bookingNumber: string, message: string) {
+  const form = new FormData();
+  form.append("action", "send");
+  form.append("booking_number", bookingNumber);
+  form.append("message", message);
+  return apiPostForm(API_ENDPOINTS.BOOKING_CHAT, form);
+}

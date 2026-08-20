@@ -10,13 +10,13 @@ import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import * as api from "@/api/client";
+import { showAlert, showConfirm } from "@/utils/cross-alert";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   Platform,
   Pressable,
   ScrollView,
@@ -48,12 +48,14 @@ const EMBASSIES = [
 ];
 
 export default function ApplyScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, renewal } = useLocalSearchParams<{ id: string; renewal?: string }>();
+  const isRenewal = renewal === "1";
   const router = useRouter();
   const { user } = useAuth();
 
   const [visa, setVisa] = useState<VisaDetails | null>(null);
   const [isLoadingVisa, setIsLoadingVisa] = useState(true);
+  const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<ProcessingOption | null>(null);
 
   const [firstName, setFirstName] = useState("");
@@ -82,13 +84,27 @@ export default function ApplyScreen() {
       if (result.success) {
         setVisa(result.data);
         setDestination(result.data.title);
-        if (result.data.processing_options?.length > 0) {
-          setSelectedOption(result.data.processing_options[0]);
+        const first = result.data.processing_options?.[0];
+        if (first) {
+          setSelectedType(first.visa_type);
+          setSelectedOption(first);
         }
       }
       setIsLoadingVisa(false);
     })();
   }, [id]);
+
+  const groupedOptions = useMemo(() => {
+    const groups = new Map<string, ProcessingOption[]>();
+    (visa?.processing_options || []).forEach((opt) => {
+      const list = groups.get(opt.visa_type) || [];
+      list.push(opt);
+      groups.set(opt.visa_type, list);
+    });
+    return Array.from(groups.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [visa]);
+
+  const optionsForSelectedType = groupedOptions.find(([t]) => t === selectedType)?.[1] || [];
 
   const unitPrice = selectedOption ? Number(selectedOption.price) : visa?.price ?? 0;
   const currency = visa?.currency ?? "₱";
@@ -99,11 +115,11 @@ export default function ApplyScreen() {
       return;
     }
     if (!firstName.trim() || !lastName.trim() || !passportNum.trim()) {
-      Alert.alert("Missing info", "Enter applicant name and passport number.");
+      showAlert("Missing info", "Enter applicant name and passport number.");
       return;
     }
     if (!phone.trim()) {
-      Alert.alert("Missing info", "Enter a contact phone number.");
+      showAlert("Missing info", "Enter a contact phone number.");
       return;
     }
 
@@ -150,13 +166,13 @@ export default function ApplyScreen() {
       visa_type_selected: selectedOption?.visa_type ?? null,
       package_source_id: visa?.id ?? null,
       package_source_type: "visa",
-      is_renewal: 0,
+      is_renewal: isRenewal ? 1 : 0,
     });
 
     setIsSubmitting(false);
 
     if (result.success) {
-      Alert.alert(
+      showConfirm(
         "Application Submitted",
         "An agent will review your application and contact you for payment and any remaining documents.",
         [
@@ -168,7 +184,7 @@ export default function ApplyScreen() {
         ]
       );
     } else {
-      Alert.alert("Submission Failed", result.message || "Please try again.");
+      showAlert("Submission Failed", result.message || "Please try again.");
     }
   };
 
@@ -185,12 +201,31 @@ export default function ApplyScreen() {
   return (
     <ThemedView style={styles.container}>
       <StatusBar style="light" />
-      <ScreenHeader title={`Apply for ${visa?.title ?? ""}`} />
+      <ScreenHeader title={`${isRenewal ? "Renew" : "Apply for"} ${visa?.title ?? ""}`} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        {visa && visa.processing_options.length > 0 && (
+        {groupedOptions.length > 0 && (
           <View style={styles.section}>
+            <ThemedText style={styles.sectionTitle}>Visa Type</ThemedText>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeTabsRow}>
+              {groupedOptions.map(([type]) => (
+                <Pressable
+                  key={type}
+                  style={[styles.typeTab, selectedType === type && styles.typeTabActive]}
+                  onPress={() => {
+                    setSelectedType(type);
+                    const opts = groupedOptions.find(([t]) => t === type)?.[1] || [];
+                    setSelectedOption(opts[0] || null);
+                  }}
+                >
+                  <ThemedText style={[styles.typeTabText, selectedType === type && styles.typeTabTextActive]}>
+                    {type}
+                  </ThemedText>
+                </Pressable>
+              ))}
+            </ScrollView>
+
             <ThemedText style={styles.sectionTitle}>Processing Option</ThemedText>
-            {visa.processing_options.map((opt) => (
+            {optionsForSelectedType.map((opt) => (
               <Pressable
                 key={opt.id}
                 style={[
@@ -199,7 +234,10 @@ export default function ApplyScreen() {
                 ]}
                 onPress={() => setSelectedOption(opt)}
               >
-                <ThemedText type="defaultSemiBold">{opt.label || opt.visa_type}</ThemedText>
+                <View style={{ flex: 1 }}>
+                  <ThemedText type="defaultSemiBold">{opt.label}</ThemedText>
+                  <ThemedText style={styles.optionTime}>{opt.processing_time}</ThemedText>
+                </View>
                 <ThemedText style={styles.optionPrice}>
                   {currency}
                   {Number(opt.price).toLocaleString()}
@@ -349,6 +387,20 @@ const styles = StyleSheet.create({
   },
   optionRowSelected: { borderColor: Colors.primary, backgroundColor: "#E8F0FE" },
   optionPrice: { color: Colors.primary, fontWeight: "800" },
+  optionTime: { color: Colors.text, fontSize: 12, marginTop: 2 },
+  typeTabsRow: { marginBottom: 16 },
+  typeTab: {
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 20,
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    marginRight: 8,
+    backgroundColor: Colors.white,
+  },
+  typeTabActive: { backgroundColor: Colors.primary, borderColor: Colors.primary },
+  typeTabText: { fontSize: 12.5, fontWeight: "700", color: Colors.dark },
+  typeTabTextActive: { color: Colors.white },
   embassyRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   embassyPill: {
     borderWidth: 1,

@@ -22,11 +22,15 @@ import { SafeAreaView } from "react-native-safe-area-context";
 interface Booking {
   booking_number: string;
   package_name: string;
+  package_duration: string;
   travel_date: string;
+  number_of_travelers: number;
   total_amount: number;
   currency: string;
   booking_status: string;
   payment_status: string;
+  visa_type_selected: string | null;
+  is_renewal: number;
 }
 
 function statusStyle(status: string) {
@@ -124,10 +128,20 @@ export default function ApplicationsScreen() {
                   <Ionicons name="document-text" size={22} color={Colors.primary} />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <ThemedText style={styles.cardTitle}>{b.package_name}</ThemedText>
+                  <View style={styles.cardTitleRow}>
+                    <ThemedText style={styles.cardTitle}>{b.package_name}</ThemedText>
+                    {!!b.is_renewal && (
+                      <View style={styles.renewalTag}>
+                        <ThemedText style={styles.renewalTagText}>Renewal</ThemedText>
+                      </View>
+                    )}
+                  </View>
+                  {!!b.visa_type_selected && (
+                    <ThemedText style={styles.cardType}>{b.visa_type_selected}</ThemedText>
+                  )}
                   <ThemedText style={styles.cardSub}>
                     {b.currency}
-                    {Number(b.total_amount).toLocaleString()} • {b.booking_number}
+                    {Number(b.total_amount).toLocaleString()} • {b.number_of_travelers} guest(s) • {b.booking_number}
                   </ThemedText>
                 </View>
                 <View style={[styles.statusPill, { backgroundColor: s.bg }]}>
@@ -186,8 +200,12 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 6 },
   cardTitle: { fontSize: 15, fontWeight: "700", color: Colors.dark },
+  cardType: { color: Colors.primary, fontSize: 11.5, fontWeight: "600", marginTop: 2 },
   cardSub: { color: Colors.text, fontSize: 12, marginTop: 3 },
+  renewalTag: { backgroundColor: "#FFF3E0", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
+  renewalTagText: { color: Colors.accent, fontSize: 9.5, fontWeight: "700" },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
   statusText: { fontSize: 10, fontWeight: "800", textTransform: "uppercase" },
 });

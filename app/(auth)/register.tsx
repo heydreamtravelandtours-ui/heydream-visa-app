@@ -2,12 +2,12 @@ import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { HOME_ROUTE } from "@/constants/routes";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
+import { showAlert, showConfirm } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { useState } from "react";
 import {
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Pressable,
@@ -32,28 +32,28 @@ export default function RegisterScreen() {
 
   const handleRegister = async () => {
     if (!fullName.trim() || !email.trim() || !password) {
-      Alert.alert("Missing info", "Fill in your name, email, and password.");
+      showAlert("Missing info", "Fill in your name, email, and password.");
       return;
     }
     if (password.length < 6) {
-      Alert.alert("Weak password", "Password must be at least 6 characters.");
+      showAlert("Weak password", "Password must be at least 6 characters.");
       return;
     }
     if (password !== confirmPassword) {
-      Alert.alert("Passwords don't match", "Double-check both password fields.");
+      showAlert("Passwords don't match", "Double-check both password fields.");
       return;
     }
     setIsSubmitting(true);
     const result = await register(fullName.trim(), email.trim(), password, phone.trim());
     setIsSubmitting(false);
     if (result.success) {
-      Alert.alert(
+      showConfirm(
         "Check your email",
         "We sent a verification link to your email. Verify your account, then log in.",
         [{ text: "OK", onPress: () => router.replace("/(auth)/login") }]
       );
     } else {
-      Alert.alert("Registration Failed", result.message || "Please try again.");
+      showAlert("Registration Failed", result.message || "Please try again.");
     }
   };
 
