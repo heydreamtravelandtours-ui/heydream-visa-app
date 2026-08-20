@@ -1,4 +1,5 @@
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { HOME_ROUTE } from "@/constants/routes";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -34,7 +35,7 @@ export default function LoginScreen() {
     const result = await login(email.trim(), password);
     setIsSubmitting(false);
     if (result.success) {
-      router.replace("/(tabs)/index");
+      router.replace(HOME_ROUTE);
     } else {
       Alert.alert("Log In Failed", result.message || "Please try again.");
     }
@@ -102,7 +103,7 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <GoogleSignInButton onSuccess={() => router.replace("/(tabs)/index")} />
+          <GoogleSignInButton onSuccess={() => router.replace(HOME_ROUTE)} />
         </View>
 
         <View style={styles.footer}>

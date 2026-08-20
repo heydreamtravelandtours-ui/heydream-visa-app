@@ -4,6 +4,7 @@
 // as the tab bar / hero sections instead of a bare system title bar.
 
 import { Colors } from "@/constants/theme";
+import { HOME_ROUTE } from "@/constants/routes";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { Pressable, StyleSheet, Text, View } from "react-native";
@@ -16,7 +17,7 @@ export function ScreenHeader({ title, right }: { title: string; right?: React.Re
       <View style={styles.row}>
         <Pressable
           style={styles.backButton}
-          onPress={() => (router.canGoBack() ? router.back() : router.replace("/(tabs)/index"))}
+          onPress={() => (router.canGoBack() ? router.back() : router.replace(HOME_ROUTE))}
           hitSlop={10}
         >
           <Ionicons name="chevron-back" size={22} color={Colors.white} />

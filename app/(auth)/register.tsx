@@ -1,4 +1,5 @@
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
+import { HOME_ROUTE } from "@/constants/routes";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -154,7 +155,7 @@ export default function RegisterScreen() {
               <View style={styles.dividerLine} />
             </View>
 
-            <GoogleSignInButton onSuccess={() => router.replace("/(tabs)/index")} />
+            <GoogleSignInButton onSuccess={() => router.replace(HOME_ROUTE)} />
           </View>
 
           <View style={styles.footer}>
