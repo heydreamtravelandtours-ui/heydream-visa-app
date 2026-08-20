@@ -41,6 +41,13 @@ interface VisaDetails {
   processing_options: ProcessingOption[];
 }
 
+function formatPrice(v: VisaDetails) {
+  const min = v.price_min ?? v.price;
+  const max = v.price_max ?? v.price;
+  if (max > min) return `${v.currency}${min.toLocaleString()} - ${v.currency}${max.toLocaleString()}`;
+  return `${v.currency}${min.toLocaleString()}`;
+}
+
 export default function VisaDetailsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -128,6 +135,11 @@ export default function VisaDetailsScreen() {
           </View>
         </View>
 
+        <View style={styles.priceRow}>
+          <ThemedText style={styles.priceFrom}>From</ThemedText>
+          <ThemedText style={styles.priceValue}>{formatPrice(visa)}</ThemedText>
+        </View>
+
         <ThemedText style={styles.description}>{visa.description}</ThemedText>
 
         {visa.processing_options?.length > 0 && (
@@ -193,6 +205,9 @@ const styles = StyleSheet.create({
     borderRadius: 10,
   },
   categoryPillText: { color: Colors.primary, fontSize: 11, fontWeight: "700" },
+  priceRow: { flexDirection: "row", alignItems: "baseline", gap: 6, marginBottom: 14 },
+  priceFrom: { color: Colors.text, fontSize: 12 },
+  priceValue: { color: Colors.primary, fontSize: 22, fontWeight: "800" },
   description: { color: Colors.text, lineHeight: 22, marginBottom: 16, fontSize: 14 },
   section: { marginTop: 12, marginBottom: 8 },
   sectionTitle: { fontSize: 17, fontWeight: "800", color: Colors.dark, marginBottom: 12 },
