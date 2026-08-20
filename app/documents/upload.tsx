@@ -15,6 +15,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
+import { appendFileToFormData } from "@/api/form-file";
 import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useEffect, useState } from "react";
@@ -67,11 +68,11 @@ export default function UploadDocumentsScreen() {
     form.append("booking_number", String(bookingNumber));
     form.append("document_label", label);
     form.append("traveler_index", "1");
-    form.append("document", {
+    await appendFileToFormData(form, "document", {
       uri: asset.uri,
       name: asset.name,
       type: asset.mimeType || "application/octet-stream",
-    } as any);
+    });
 
     const result = await api.uploadDocument(form);
     setUploadingLabel(null);

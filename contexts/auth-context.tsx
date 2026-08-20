@@ -1,12 +1,14 @@
 // contexts/auth-context.tsx
 // Token-first auth (unlike heydream-app's AsyncStorage-only pattern): the
-// bearer token lives in SecureStore (api/client.ts), this context just
+// bearer token lives in secure storage (api/client.ts), this context just
 // tracks the signed-in user object in memory + a lightweight mirror in
-// SecureStore so a cold app start can restore the session without a round
-// trip before first paint.
+// secure storage so a cold app start can restore the session without a
+// round trip before first paint. Goes through api/secure-storage.ts rather
+// than expo-secure-store directly -- its web build has no implementation
+// at all, so calling it straight breaks the web preview.
 
 import React, { createContext, useContext, useEffect, useState } from "react";
-import * as SecureStore from "expo-secure-store";
+import * as secureStorage from "../api/secure-storage";
 import * as api from "../api/client";
 
 const USER_KEY = "heydream_visa_user";
@@ -41,7 +43,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       try {
         const [token, storedUser] = await Promise.all([
           api.getToken(),
-          SecureStore.getItemAsync(USER_KEY),
+          secureStorage.getItem(USER_KEY),
         ]);
         if (token && storedUser) {
           setUser(JSON.parse(storedUser));
@@ -56,7 +58,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const result = await api.login(email, password);
     if (result.success && result.token) {
       await api.setToken(result.token);
-      await SecureStore.setItemAsync(USER_KEY, JSON.stringify(result.user));
+      await secureStorage.setItem(USER_KEY, JSON.stringify(result.user));
       setUser(result.user);
       return { success: true };
     }
@@ -70,7 +72,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const logout = async () => {
     await api.clearToken();
-    await SecureStore.deleteItemAsync(USER_KEY);
+    await secureStorage.removeItem(USER_KEY);
     setUser(null);
   };
 

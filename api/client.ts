@@ -4,21 +4,21 @@
 // config/token_auth.php reads that header and resolves it against the same
 // user_sessions table the website's cookie-based login already uses.
 
-import * as SecureStore from "expo-secure-store";
+import * as secureStorage from "./secure-storage";
 import { API_ENDPOINTS } from "./config";
 
 const TOKEN_KEY = "heydream_visa_token";
 
 export async function getToken(): Promise<string | null> {
-  return SecureStore.getItemAsync(TOKEN_KEY);
+  return secureStorage.getItem(TOKEN_KEY);
 }
 
 export async function setToken(token: string): Promise<void> {
-  await SecureStore.setItemAsync(TOKEN_KEY, token);
+  await secureStorage.setItem(TOKEN_KEY, token);
 }
 
 export async function clearToken(): Promise<void> {
-  await SecureStore.deleteItemAsync(TOKEN_KEY);
+  await secureStorage.removeItem(TOKEN_KEY);
 }
 
 export interface ApiResult<T = any> {

@@ -152,7 +152,7 @@ export default function VisaDetailsScreen() {
           </View>
         )}
 
-        {visa.important_notes && (
+        {!!visa.important_notes && (
           <View style={styles.section}>
             <ThemedText type="subtitle" style={styles.sectionTitle}>
               Important Notes

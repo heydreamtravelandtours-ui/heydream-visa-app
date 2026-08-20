@@ -10,6 +10,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
+import { appendFileToFormData } from "@/api/form-file";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
@@ -110,11 +111,11 @@ export default function ApplicationDetailScreen() {
     form.append("booking_number", String(bookingNumber));
     form.append("payment_method", "GCash");
     form.append("payment_reference", paymentReference.trim());
-    form.append("payment_proof", {
+    await appendFileToFormData(form, "payment_proof", {
       uri: proofUri,
       name: "receipt.jpg",
       type: "image/jpeg",
-    } as any);
+    });
 
     const result = await api.submitPayment(form);
     setIsSubmittingPayment(false);
@@ -217,7 +218,7 @@ export default function ApplicationDetailScreen() {
           </View>
         )}
 
-        {!canPay && booking.payment_status === "unpaid" && !booking.partner_approved && (
+        {!canPay && booking.payment_status === "unpaid" && booking.booking_status !== "confirmed" && (
           <ThemedText style={styles.helperText}>
             Waiting for an agent to review and confirm pricing before payment can be submitted.
           </ThemedText>
