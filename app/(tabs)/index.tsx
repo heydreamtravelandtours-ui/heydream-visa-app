@@ -58,6 +58,17 @@ export default function HomeScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user) {
+      setUnreadCount(0);
+      return;
+    }
+    api.getNotifications().then((result) => {
+      if (result.success) setUnreadCount(result.unread_count || 0);
+    });
+  }, [user]);
 
   const load = useCallback(async () => {
     const result = await api.getVisaList();
@@ -120,12 +131,26 @@ export default function HomeScreen() {
                 <ThemedText style={styles.heroTagline}>Your passport to the world</ThemedText>
               </View>
             </View>
-            <Pressable
-              style={styles.avatarButton}
-              onPress={() => router.push(user ? "/(tabs)/profile" : "/(auth)/login")}
-            >
-              <Ionicons name="person" size={18} color={Colors.white} />
-            </Pressable>
+            <View style={styles.heroActions}>
+              {user && (
+                <Pressable style={styles.avatarButton} onPress={() => router.push("/notifications")}>
+                  <Ionicons name="notifications" size={18} color={Colors.white} />
+                  {unreadCount > 0 && (
+                    <View style={styles.badge}>
+                      <ThemedText style={styles.badgeText}>
+                        {unreadCount > 9 ? "9+" : unreadCount}
+                      </ThemedText>
+                    </View>
+                  )}
+                </Pressable>
+              )}
+              <Pressable
+                style={styles.avatarButton}
+                onPress={() => router.push(user ? "/(tabs)/profile" : "/(auth)/login")}
+              >
+                <Ionicons name="person" size={18} color={Colors.white} />
+              </Pressable>
+            </View>
           </View>
         </SafeAreaView>
 
@@ -254,6 +279,7 @@ const styles = StyleSheet.create({
   heroLogoImage: { width: "100%", height: "100%" },
   heroBrand: { color: Colors.white, fontSize: 22, fontWeight: "800" },
   heroTagline: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 2 },
+  heroActions: { flexDirection: "row", gap: 10 },
   avatarButton: {
     width: 36,
     height: 36,
@@ -262,6 +288,21 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  badge: {
+    position: "absolute",
+    top: -2,
+    right: -2,
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    backgroundColor: "#E53935",
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 3,
+    borderWidth: 1.5,
+    borderColor: Colors.primary,
+  },
+  badgeText: { color: Colors.white, fontSize: 9, fontWeight: "800" },
   searchWrap: {
     position: "absolute",
     left: 20,

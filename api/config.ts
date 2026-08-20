@@ -49,4 +49,8 @@ export const API_ENDPOINTS = {
   SAVE_SERVICE_BOOKING: `${API_BASE_URL}/api/save-service-booking.php`,
   UPLOAD_DOCUMENT: `${API_BASE_URL}/visa/api/upload-api.php`,
   PAY_BOOKING: `${API_BASE_URL}/User%20Account/api/pay-flight-booking.php`,
+  // The visa/ proxies, not api/ directly -- they set HD_NOTIFICATIONS_VISA_ONLY
+  // / HD_BOOKING_COUNT_VISA_ONLY so this app only ever sees visa-scoped rows.
+  NOTIFICATIONS: `${API_BASE_URL}/visa/api/notifications-api.php`,
+  BOOKING_COUNT: `${API_BASE_URL}/visa/api/get-booking-count.php`,
 } as const;

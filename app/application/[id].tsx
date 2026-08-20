@@ -40,6 +40,8 @@ interface Booking {
   payment_proof: string | null;
   partner_approved: number;
   required_documents: string;
+  travel_documents: number;
+  ready_for_travel: number;
 }
 
 function statusStyle(status: string) {
@@ -53,6 +55,114 @@ function statusStyle(status: string) {
     default:
       return { bg: "#FFF3E0", fg: Colors.accent };
   }
+}
+
+type StepState = "completed" | "active" | "urgent" | "pending";
+
+interface TrackingStep {
+  label: string;
+  description: string;
+  state: StepState;
+}
+
+// Mirrors visa/profile.php's showTracking() 4-step progress tracker
+// (Booking Received -> Documents -> Payment -> Ready for Travel), derived
+// from the same booking fields rather than any persisted event log --
+// there is no per-event history table for a customer to read (confirmed
+// while investigating this repo).
+function getTrackingSteps(b: Booking): TrackingStep[] {
+  if (b.booking_status === "cancelled") {
+    return [
+      { label: "Booking Received", description: "This booking has been cancelled.", state: "urgent" },
+      { label: "Documents", description: "", state: "urgent" },
+      { label: "Payment", description: "", state: "urgent" },
+      { label: "Ready for Travel", description: "", state: "urgent" },
+    ];
+  }
+
+  const visaNeedsAction = b.visa_status === "REQUESTED" || b.visa_status === "DECLINED";
+  const documentsStep: TrackingStep = visaNeedsAction
+    ? {
+        label: "Documents",
+        description:
+          b.visa_status === "DECLINED"
+            ? "Your visa submission was not approved. Please review and resubmit."
+            : "A visa is required for this booking. Please submit it below.",
+        state: "urgent",
+      }
+    : {
+        label: "Documents",
+        description: b.travel_documents
+          ? "Your documents are on file."
+          : "Please upload your travel requirements.",
+        state: b.travel_documents ? "completed" : "active",
+      };
+
+  const approvalStep: TrackingStep =
+    b.booking_status === "pending"
+      ? { label: "Booking Review", description: "We're reviewing and confirming your request.", state: "active" }
+      : { label: "Booking Review", description: "Your booking request has been confirmed.", state: "completed" };
+
+  const awaitingVerification = !!b.payment_proof && b.payment_status !== "paid";
+  let paymentStep: TrackingStep;
+  if (b.payment_status === "paid") {
+    paymentStep = { label: "Payment", description: "Payment verified.", state: "completed" };
+  } else if (awaitingVerification) {
+    paymentStep = { label: "Payment", description: "We're verifying your payment.", state: "active" };
+  } else if (b.booking_status === "confirmed") {
+    paymentStep = { label: "Payment", description: "Ready for you to submit payment.", state: "active" };
+  } else {
+    paymentStep = { label: "Payment", description: "Awaiting booking confirmation.", state: "pending" };
+  }
+
+  const readyStep: TrackingStep = b.ready_for_travel
+    ? { label: "Ready for Travel", description: "You're all set!", state: "completed" }
+    : { label: "Ready for Travel", description: "Final step once everything else is done.", state: "pending" };
+
+  return [
+    { label: "Booking Received", description: "Your request was submitted.", state: "completed" },
+    documentsStep,
+    approvalStep,
+    paymentStep,
+    readyStep,
+  ];
+}
+
+const STEP_COLORS: Record<StepState, { bg: string; fg: string }> = {
+  completed: { bg: "#2E7D32", fg: Colors.white },
+  active: { bg: Colors.primary, fg: Colors.white },
+  urgent: { bg: "#B00020", fg: Colors.white },
+  pending: { bg: Colors.lightGray, fg: Colors.text },
+};
+
+function TrackingTracker({ steps }: { steps: TrackingStep[] }) {
+  return (
+    <View style={styles.tracker}>
+      {steps.map((step, idx) => {
+        const c = STEP_COLORS[step.state];
+        return (
+          <View key={step.label} style={styles.trackerRow}>
+            <View style={styles.trackerRail}>
+              <View style={[styles.trackerDot, { backgroundColor: c.bg }]}>
+                {step.state === "completed" ? (
+                  <Ionicons name="checkmark" size={13} color={c.fg} />
+                ) : (
+                  <View style={[styles.trackerDotInner, { backgroundColor: c.fg }]} />
+                )}
+              </View>
+              {idx < steps.length - 1 && <View style={styles.trackerLine} />}
+            </View>
+            <View style={styles.trackerBody}>
+              <ThemedText style={styles.trackerLabel}>{step.label}</ThemedText>
+              {!!step.description && (
+                <ThemedText style={styles.trackerDescription}>{step.description}</ThemedText>
+              )}
+            </View>
+          </View>
+        );
+      })}
+    </View>
+  );
 }
 
 export default function ApplicationDetailScreen() {
@@ -182,6 +292,10 @@ export default function ApplicationDetailScreen() {
               {booking.booking_status}
             </ThemedText>
           </View>
+        </View>
+
+        <View style={styles.section}>
+          <TrackingTracker steps={getTrackingSteps(booking)} />
         </View>
 
         <View style={styles.section}>
@@ -348,4 +462,19 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   noticeText: { flex: 1, color: "#8A6100", lineHeight: 19, fontSize: 13 },
+  tracker: {},
+  trackerRow: { flexDirection: "row", gap: 12 },
+  trackerRail: { alignItems: "center" },
+  trackerDot: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  trackerDotInner: { width: 8, height: 8, borderRadius: 4 },
+  trackerLine: { width: 2, flex: 1, backgroundColor: "#E5E9F0", marginVertical: 2 },
+  trackerBody: { flex: 1, paddingBottom: 18 },
+  trackerLabel: { fontWeight: "700", color: Colors.dark, fontSize: 14, marginBottom: 2 },
+  trackerDescription: { color: Colors.text, fontSize: 12.5, lineHeight: 17 },
 });

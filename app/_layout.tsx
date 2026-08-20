@@ -42,6 +42,7 @@ function GatedApp() {
       <Stack.Screen name="apply/[id]" />
       <Stack.Screen name="documents/upload" />
       <Stack.Screen name="application/[id]" />
+      <Stack.Screen name="notifications" />
     </Stack>
   );
 }

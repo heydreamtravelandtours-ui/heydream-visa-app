@@ -119,3 +119,27 @@ export function uploadDocument(form: FormData) {
 export function submitPayment(form: FormData) {
   return apiPostForm(API_ENDPOINTS.PAY_BOOKING, form);
 }
+
+export function getNotifications() {
+  return apiGet(`${API_ENDPOINTS.NOTIFICATIONS}?action=list`);
+}
+
+export function markNotificationRead(id: number) {
+  // notifications-api.php reads $_POST['id'], which PHP only populates from
+  // a urlencoded/multipart body -- not apiPostJson's JSON body -- hence
+  // FormData here instead.
+  const form = new FormData();
+  form.append("action", "mark_read");
+  form.append("id", String(id));
+  return apiPostForm(API_ENDPOINTS.NOTIFICATIONS, form);
+}
+
+export function markAllNotificationsRead() {
+  const form = new FormData();
+  form.append("action", "mark_all_read");
+  return apiPostForm(API_ENDPOINTS.NOTIFICATIONS, form);
+}
+
+export function getBookingCount() {
+  return apiGet(API_ENDPOINTS.BOOKING_COUNT);
+}
