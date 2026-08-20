@@ -4,6 +4,7 @@
 // (see submitVisaApplication() there). v1 supports a single applicant --
 // the web wizard's multi-applicant support isn't replicated here yet.
 
+import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
@@ -11,6 +12,7 @@ import { useAuth } from "@/contexts/auth-context";
 import * as api from "@/api/client";
 import DateTimePicker from "@react-native-community/datetimepicker";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -173,6 +175,8 @@ export default function ApplyScreen() {
   if (isLoadingVisa) {
     return (
       <ThemedView style={styles.centered}>
+        <StatusBar style="light" />
+        <ScreenHeader title="Apply" />
         <ActivityIndicator color={Colors.primary} />
       </ThemedView>
     );
@@ -180,16 +184,12 @@ export default function ApplyScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenHeader title={`Apply for ${visa?.title ?? ""}`} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <ThemedText type="title" style={styles.title}>
-          Apply for {visa?.title}
-        </ThemedText>
-
         {visa && visa.processing_options.length > 0 && (
           <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Processing Option
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Processing Option</ThemedText>
             {visa.processing_options.map((opt) => (
               <Pressable
                 key={opt.id}
@@ -210,9 +210,7 @@ export default function ApplyScreen() {
         )}
 
         <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Applicant Info
-          </ThemedText>
+          <ThemedText style={styles.sectionTitle}>Applicant Info</ThemedText>
           <TextInput style={styles.input} placeholder="First Name" placeholderTextColor={Colors.text} value={firstName} onChangeText={setFirstName} />
           <TextInput style={styles.input} placeholder="Last Name" placeholderTextColor={Colors.text} value={lastName} onChangeText={setLastName} />
           <TextInput style={styles.input} placeholder="Phone Number" placeholderTextColor={Colors.text} keyboardType="phone-pad" value={phone} onChangeText={setPhone} />
@@ -245,9 +243,7 @@ export default function ApplyScreen() {
         </View>
 
         <View style={styles.section}>
-          <ThemedText type="subtitle" style={styles.sectionTitle}>
-            Trip Info
-          </ThemedText>
+          <ThemedText style={styles.sectionTitle}>Trip Info</ThemedText>
           <View style={styles.embassyRow}>
             {EMBASSIES.map((e) => (
               <Pressable
@@ -285,8 +281,8 @@ export default function ApplyScreen() {
         </View>
 
         <View style={styles.totalRow}>
-          <ThemedText type="defaultSemiBold">Total</ThemedText>
-          <ThemedText type="subtitle">
+          <ThemedText style={styles.totalLabel}>Total</ThemedText>
+          <ThemedText style={styles.totalValue}>
             {currency}
             {unitPrice.toLocaleString()}
           </ThemedText>
@@ -294,7 +290,7 @@ export default function ApplyScreen() {
 
         <Pressable style={styles.submitButton} onPress={handleSubmit} disabled={isSubmitting}>
           {isSubmitting ? (
-            <ActivityIndicator color={Colors.white} />
+            <ActivityIndicator color={Colors.primary} />
           ) : (
             <ThemedText style={styles.submitButtonText}>Submit Application</ThemedText>
           )}
@@ -323,39 +319,40 @@ function DateField({
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+  container: { flex: 1, backgroundColor: Colors.white },
+  centered: { flex: 1, backgroundColor: Colors.white },
   scrollContent: { padding: 20, paddingBottom: 60 },
-  title: { marginBottom: 20 },
   section: { marginBottom: 24 },
-  sectionTitle: { marginBottom: 12, fontSize: 18 },
+  sectionTitle: { marginBottom: 12, fontSize: 17, fontWeight: "800", color: Colors.dark },
   input: {
     borderWidth: 1,
-    borderColor: Colors.lightGray,
-    borderRadius: 10,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
     fontSize: 15,
     justifyContent: "center",
+    color: Colors.dark,
   },
   multiline: { minHeight: 80, textAlignVertical: "top" },
   optionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    borderWidth: 1,
-    borderColor: Colors.lightGray,
-    borderRadius: 10,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
     padding: 14,
     marginBottom: 8,
+    borderWidth: 1.5,
+    borderColor: "transparent",
   },
   optionRowSelected: { borderColor: Colors.primary, backgroundColor: "#E8F0FE" },
-  optionPrice: { color: Colors.primary, fontWeight: "700" },
+  optionPrice: { color: Colors.primary, fontWeight: "800" },
   embassyRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
   embassyPill: {
     borderWidth: 1,
-    borderColor: Colors.lightGray,
+    borderColor: "#e2e8f0",
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingVertical: 8,
@@ -367,15 +364,22 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     marginBottom: 20,
-    paddingTop: 12,
+    paddingTop: 16,
     borderTopWidth: 1,
     borderTopColor: Colors.lightGray,
   },
+  totalLabel: { fontWeight: "700", color: Colors.dark, fontSize: 15 },
+  totalValue: { fontSize: 22, fontWeight: "800", color: Colors.primary },
   submitButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
+    backgroundColor: Colors.gold,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  submitButtonText: { color: Colors.white, fontWeight: "700", fontSize: 16 },
+  submitButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 16 },
 });

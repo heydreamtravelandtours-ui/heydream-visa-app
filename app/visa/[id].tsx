@@ -5,13 +5,14 @@
 // project_visa_required_only_sales (no "visa-free"/stay-limit wording on
 // customer sales pages).
 
+import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
-import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import * as api from "@/api/client";
 import { Image } from "expo-image";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
@@ -89,32 +90,41 @@ export default function VisaDetailsScreen() {
 
   if (isLoading) {
     return (
-      <ThemedView style={styles.centered}>
+      <View style={styles.centered}>
+        <StatusBar style="light" />
+        <ScreenHeader title="Visa Details" />
         <ActivityIndicator color={Colors.primary} />
-      </ThemedView>
+      </View>
     );
   }
 
   if (errorMessage || !visa) {
     return (
-      <ThemedView style={styles.centered}>
+      <View style={styles.centered}>
+        <StatusBar style="light" />
+        <ScreenHeader title="Visa Details" />
         <ThemedText style={styles.error}>{errorMessage}</ThemedText>
-      </ThemedView>
+      </View>
     );
   }
 
   return (
-    <ThemedView style={styles.container}>
+    <View style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenHeader title={visa.title} />
+
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <View style={styles.headerRow}>
+        <View style={styles.heroRow}>
           {visa.icon_type === "image" && visa.icon_value ? (
-            <Image source={{ uri: visa.icon_value }} style={styles.icon} contentFit="cover" />
+            <Image source={{ uri: visa.icon_value }} style={styles.heroImage} contentFit="cover" />
           ) : (
-            <View style={[styles.icon, styles.iconPlaceholder]} />
+            <View style={[styles.heroImage, styles.heroImagePlaceholder]} />
           )}
           <View style={{ flex: 1 }}>
-            <ThemedText type="title">{visa.title}</ThemedText>
-            <ThemedText style={styles.category}>{visa.category}</ThemedText>
+            <ThemedText style={styles.title}>{visa.title}</ThemedText>
+            <View style={styles.categoryPill}>
+              <ThemedText style={styles.categoryPillText}>{visa.category}</ThemedText>
+            </View>
           </View>
         </View>
 
@@ -122,13 +132,11 @@ export default function VisaDetailsScreen() {
 
         {visa.processing_options?.length > 0 && (
           <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Processing Options
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Processing Options</ThemedText>
             {visa.processing_options.map((opt) => (
               <View key={opt.id} style={styles.optionRow}>
                 <View style={{ flex: 1 }}>
-                  <ThemedText type="defaultSemiBold">{opt.label || opt.visa_type}</ThemedText>
+                  <ThemedText style={styles.optionLabel}>{opt.label || opt.visa_type}</ThemedText>
                 </View>
                 <ThemedText style={styles.optionPrice}>
                   {visa.currency}
@@ -141,22 +149,19 @@ export default function VisaDetailsScreen() {
 
         {requirements.length > 0 && (
           <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Requirements
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Requirements</ThemedText>
             {requirements.map((req, idx) => (
-              <ThemedText key={idx} style={styles.requirement}>
-                • {req}
-              </ThemedText>
+              <View key={idx} style={styles.requirementRow}>
+                <View style={styles.requirementDot} />
+                <ThemedText style={styles.requirement}>{req}</ThemedText>
+              </View>
             ))}
           </View>
         )}
 
         {!!visa.important_notes && (
           <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Important Notes
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Important Notes</ThemedText>
             <ThemedText style={styles.description}>{visa.important_notes}</ThemedText>
           </View>
         )}
@@ -167,43 +172,71 @@ export default function VisaDetailsScreen() {
           <ThemedText style={styles.applyButtonText}>Apply Now</ThemedText>
         </Pressable>
       </View>
-    </ThemedView>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  error: { color: "#B00020", textAlign: "center" },
-  scrollContent: { padding: 20, paddingBottom: 100 },
-  headerRow: { flexDirection: "row", gap: 14, marginBottom: 16 },
-  icon: { width: 64, height: 64, borderRadius: 10 },
-  iconPlaceholder: { backgroundColor: Colors.lightGray },
-  category: { color: Colors.text, marginTop: 4 },
-  description: { color: Colors.text, lineHeight: 22, marginBottom: 16 },
+  container: { flex: 1, backgroundColor: Colors.white },
+  centered: { flex: 1, backgroundColor: Colors.white },
+  error: { color: "#B00020", textAlign: "center", padding: 24 },
+  scrollContent: { padding: 20, paddingBottom: 110 },
+  heroRow: { flexDirection: "row", gap: 14, marginBottom: 16 },
+  heroImage: { width: 72, height: 72, borderRadius: 14 },
+  heroImagePlaceholder: { backgroundColor: Colors.lightGray },
+  title: { fontSize: 22, fontWeight: "800", color: Colors.dark, marginBottom: 6 },
+  categoryPill: {
+    alignSelf: "flex-start",
+    backgroundColor: "#E8F0FE",
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  categoryPillText: { color: Colors.primary, fontSize: 11, fontWeight: "700" },
+  description: { color: Colors.text, lineHeight: 22, marginBottom: 16, fontSize: 14 },
   section: { marginTop: 12, marginBottom: 8 },
-  sectionTitle: { marginBottom: 10, fontSize: 18 },
+  sectionTitle: { fontSize: 17, fontWeight: "800", color: Colors.dark, marginBottom: 12 },
   optionRow: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
+    backgroundColor: Colors.background,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 8,
   },
-  optionPrice: { color: Colors.primary, fontWeight: "700" },
-  requirement: { color: Colors.text, marginBottom: 6, lineHeight: 20 },
+  optionLabel: { fontWeight: "600", color: Colors.dark, fontSize: 14 },
+  optionPrice: { color: Colors.primary, fontWeight: "800" },
+  requirementRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+  requirementDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
+    backgroundColor: Colors.accent,
+    marginTop: 7,
+  },
+  requirement: { flex: 1, color: Colors.text, lineHeight: 20, fontSize: 14 },
   footer: {
+    position: "absolute",
+    left: 0,
+    right: 0,
+    bottom: 0,
     padding: 20,
     borderTopWidth: 1,
     borderTopColor: Colors.lightGray,
     backgroundColor: Colors.white,
   },
   applyButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
+    backgroundColor: Colors.gold,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  applyButtonText: { color: Colors.white, fontWeight: "700", fontSize: 16 },
+  applyButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 16 },
 });

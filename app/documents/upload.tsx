@@ -11,13 +11,16 @@
 // adds "Current Visa" for renewals, so re-deriving it client-side would
 // drift from what the backend/admin actually expects for this booking.
 
+import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
 import { appendFileToFormData } from "@/api/form-file";
+import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { ActivityIndicator, Alert, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
@@ -87,6 +90,8 @@ export default function UploadDocumentsScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.centered}>
+        <StatusBar style="light" />
+        <ScreenHeader title="Upload Documents" />
         <ActivityIndicator color={Colors.primary} />
       </ThemedView>
     );
@@ -94,10 +99,9 @@ export default function UploadDocumentsScreen() {
 
   return (
     <ThemedView style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenHeader title="Upload Documents" />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <ThemedText type="title" style={styles.title}>
-          Upload Documents
-        </ThemedText>
         <ThemedText style={styles.subtitle}>
           Application {bookingNumber}. You can also add documents later from My Applications.
         </ThemedText>
@@ -113,6 +117,13 @@ export default function UploadDocumentsScreen() {
             const isUploading = uploadingLabel === label;
             return (
               <View key={label} style={styles.row}>
+                <View style={styles.rowIconWrap}>
+                  <Ionicons
+                    name={isDone ? "checkmark-circle" : "document-outline"}
+                    size={20}
+                    color={isDone ? "#2E7D32" : Colors.primary}
+                  />
+                </View>
                 <ThemedText style={{ flex: 1 }}>{label}</ThemedText>
                 <Pressable
                   style={[styles.pickButton, isDone && styles.pickButtonDone]}
@@ -144,11 +155,10 @@ export default function UploadDocumentsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center" },
+  container: { flex: 1, backgroundColor: Colors.white },
+  centered: { flex: 1, backgroundColor: Colors.white },
   scrollContent: { padding: 20, paddingBottom: 60 },
-  title: { marginBottom: 8 },
-  subtitle: { color: Colors.text, marginBottom: 20, lineHeight: 20 },
+  subtitle: { color: Colors.text, marginBottom: 20, lineHeight: 20, marginTop: 16 },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -156,6 +166,14 @@ const styles = StyleSheet.create({
     borderBottomColor: Colors.lightGray,
     paddingVertical: 14,
     gap: 12,
+  },
+  rowIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 10,
+    backgroundColor: Colors.background,
+    alignItems: "center",
+    justifyContent: "center",
   },
   pickButton: {
     backgroundColor: Colors.primary,
@@ -169,10 +187,15 @@ const styles = StyleSheet.create({
   pickButtonText: { color: Colors.white, fontWeight: "600", fontSize: 13 },
   doneButton: {
     marginTop: 28,
-    backgroundColor: Colors.dark,
-    borderRadius: 10,
+    backgroundColor: Colors.gold,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  doneButtonText: { color: Colors.white, fontWeight: "700", fontSize: 16 },
+  doneButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 16 },
 });

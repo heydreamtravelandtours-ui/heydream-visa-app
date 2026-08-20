@@ -6,13 +6,16 @@
 // cancel button here would just always fail. Same limitation the visa
 // subdomain's own profile.php silently runs into today.
 
+import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
 import { appendFileToFormData } from "@/api/form-file";
+import { Ionicons } from "@expo/vector-icons";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -37,6 +40,19 @@ interface Booking {
   payment_proof: string | null;
   partner_approved: number;
   required_documents: string;
+}
+
+function statusStyle(status: string) {
+  switch (status) {
+    case "confirmed":
+      return { bg: "#E8F5E9", fg: "#2E7D32" };
+    case "cancelled":
+      return { bg: "#FDECEA", fg: "#B00020" };
+    case "completed":
+      return { bg: "#E3F2FD", fg: "#1565C0" };
+    default:
+      return { bg: "#FFF3E0", fg: Colors.accent };
+  }
 }
 
 export default function ApplicationDetailScreen() {
@@ -133,6 +149,8 @@ export default function ApplicationDetailScreen() {
   if (isLoading) {
     return (
       <ThemedView style={styles.centered}>
+        <StatusBar style="light" />
+        <ScreenHeader title="Application" />
         <ActivityIndicator color={Colors.primary} />
       </ThemedView>
     );
@@ -141,44 +159,56 @@ export default function ApplicationDetailScreen() {
   if (errorMessage || !booking) {
     return (
       <ThemedView style={styles.centered}>
+        <StatusBar style="light" />
+        <ScreenHeader title="Application" />
         <ThemedText style={styles.error}>{errorMessage}</ThemedText>
       </ThemedView>
     );
   }
 
+  const s = statusStyle(booking.booking_status);
+
   return (
     <ThemedView style={styles.container}>
+      <StatusBar style="light" />
+      <ScreenHeader title={booking.package_name} />
       <ScrollView contentContainerStyle={styles.scrollContent}>
-        <ThemedText type="title" style={styles.title}>
-          {booking.package_name}
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>{booking.booking_number}</ThemedText>
+        <View style={styles.titleRow}>
+          <View>
+            <ThemedText style={styles.subtitle}>{booking.booking_number}</ThemedText>
+          </View>
+          <View style={[styles.statusPill, { backgroundColor: s.bg }]}>
+            <ThemedText style={[styles.statusText, { color: s.fg }]}>
+              {booking.booking_status}
+            </ThemedText>
+          </View>
+        </View>
 
         <View style={styles.section}>
-          <Row label="Status" value={booking.booking_status} />
           <Row label="Visa Status" value={booking.visa_status} />
           <Row label="Payment" value={booking.payment_status} />
           <Row label="Processing" value={booking.package_duration} />
           <Row
             label="Total"
             value={`${booking.currency}${Number(booking.total_amount).toLocaleString()}`}
+            last
           />
         </View>
 
         {requirements.length > 0 && (
           <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Documents
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Documents</ThemedText>
             {requirements.map((label) => (
-              <ThemedText key={label} style={styles.requirement}>
-                • {label}
-              </ThemedText>
+              <View key={label} style={styles.requirementRow}>
+                <View style={styles.requirementDot} />
+                <ThemedText style={styles.requirement}>{label}</ThemedText>
+              </View>
             ))}
             <Pressable
               style={styles.secondaryButton}
               onPress={() => router.push(`/documents/upload?bookingNumber=${booking.booking_number}`)}
             >
+              <Ionicons name="cloud-upload-outline" size={16} color={Colors.primary} />
               <ThemedText style={styles.secondaryButtonText}>Manage Documents</ThemedText>
             </Pressable>
           </View>
@@ -186,22 +216,25 @@ export default function ApplicationDetailScreen() {
 
         {canPay && (
           <View style={styles.section}>
-            <ThemedText type="subtitle" style={styles.sectionTitle}>
-              Submit Payment
-            </ThemedText>
+            <ThemedText style={styles.sectionTitle}>Submit Payment</ThemedText>
             <ThemedText style={styles.helperText}>
               Pay via GCash, then enter the reference number and attach your receipt.
             </ThemedText>
             <TextInput
               style={styles.input}
               placeholder="GCash Reference Number"
-              placeholderTextColor={Colors.text}
+              placeholderTextColor="#94a3b8"
               value={paymentReference}
               onChangeText={setPaymentReference}
             />
             <Pressable style={styles.secondaryButton} onPress={pickProof}>
+              <Ionicons
+                name={proofUri ? "checkmark-circle" : "camera-outline"}
+                size={16}
+                color={proofUri ? "#2E7D32" : Colors.primary}
+              />
               <ThemedText style={styles.secondaryButtonText}>
-                {proofUri ? "Receipt Attached ✓" : "Attach Receipt Photo"}
+                {proofUri ? "Receipt Attached" : "Attach Receipt Photo"}
               </ThemedText>
             </Pressable>
             <Pressable
@@ -210,7 +243,7 @@ export default function ApplicationDetailScreen() {
               disabled={isSubmittingPayment}
             >
               {isSubmittingPayment ? (
-                <ActivityIndicator color={Colors.white} />
+                <ActivityIndicator color={Colors.primary} />
               ) : (
                 <ThemedText style={styles.submitButtonText}>Submit Payment</ThemedText>
               )}
@@ -219,67 +252,100 @@ export default function ApplicationDetailScreen() {
         )}
 
         {!canPay && booking.payment_status === "unpaid" && booking.booking_status !== "confirmed" && (
-          <ThemedText style={styles.helperText}>
-            Waiting for an agent to review and confirm pricing before payment can be submitted.
-          </ThemedText>
+          <View style={styles.noticeBox}>
+            <Ionicons name="time-outline" size={18} color={Colors.accent} />
+            <ThemedText style={styles.noticeText}>
+              Waiting for an agent to review and confirm pricing before payment can be submitted.
+            </ThemedText>
+          </View>
         )}
       </ScrollView>
     </ThemedView>
   );
 }
 
-function Row({ label, value }: { label: string; value: string }) {
+function Row({ label, value, last }: { label: string; value: string; last?: boolean }) {
   return (
-    <View style={styles.row}>
+    <View style={[styles.row, last && { borderBottomWidth: 0 }]}>
       <ThemedText style={styles.rowLabel}>{label}</ThemedText>
-      <ThemedText type="defaultSemiBold">{value}</ThemedText>
+      <ThemedText style={styles.rowValue}>{value}</ThemedText>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1 },
-  centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 24 },
-  error: { color: "#B00020", textAlign: "center" },
+  container: { flex: 1, backgroundColor: Colors.white },
+  centered: { flex: 1, backgroundColor: Colors.white },
+  error: { color: "#B00020", textAlign: "center", padding: 24 },
   scrollContent: { padding: 20, paddingBottom: 60 },
-  title: { marginBottom: 4 },
-  subtitle: { color: Colors.text, marginBottom: 20 },
-  section: { marginBottom: 24 },
-  sectionTitle: { marginBottom: 10, fontSize: 18 },
+  titleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 20 },
+  subtitle: { color: Colors.text, fontSize: 13 },
+  statusPill: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 12 },
+  statusText: { fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
+  section: {
+    backgroundColor: Colors.background,
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 20,
+  },
+  sectionTitle: { marginBottom: 12, fontSize: 17, fontWeight: "800", color: Colors.dark },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
     paddingVertical: 10,
     borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
+    borderBottomColor: "#E5E9F0",
   },
   rowLabel: { color: Colors.text },
-  requirement: { color: Colors.text, marginBottom: 6, lineHeight: 20 },
+  rowValue: { fontWeight: "700", color: Colors.dark },
+  requirementRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
+  requirementDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent, marginTop: 7 },
+  requirement: { flex: 1, color: Colors.text, lineHeight: 20 },
   helperText: { color: Colors.text, lineHeight: 20, marginBottom: 12 },
   input: {
     borderWidth: 1,
-    borderColor: Colors.lightGray,
-    borderRadius: 10,
+    borderColor: "#e2e8f0",
+    borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
     marginBottom: 12,
     fontSize: 15,
+    backgroundColor: Colors.white,
+    color: Colors.dark,
   },
   secondaryButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 8,
     borderWidth: 1,
     borderColor: Colors.primary,
-    borderRadius: 10,
+    borderRadius: 12,
     paddingVertical: 14,
-    alignItems: "center",
     marginTop: 8,
+    backgroundColor: Colors.white,
   },
-  secondaryButtonText: { color: Colors.primary, fontWeight: "600" },
+  secondaryButtonText: { color: Colors.primary, fontWeight: "700" },
   submitButton: {
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
+    backgroundColor: Colors.gold,
+    borderRadius: 14,
     paddingVertical: 16,
     alignItems: "center",
     marginTop: 12,
+    shadowColor: Colors.gold,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
   },
-  submitButtonText: { color: Colors.white, fontWeight: "700", fontSize: 16 },
+  submitButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 16 },
+  noticeBox: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+    backgroundColor: "#FFF3E0",
+    borderRadius: 12,
+    padding: 14,
+  },
+  noticeText: { flex: 1, color: "#8A6100", lineHeight: 19, fontSize: 13 },
 });
