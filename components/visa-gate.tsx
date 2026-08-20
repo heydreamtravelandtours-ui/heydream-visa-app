@@ -4,20 +4,33 @@
 // Visitor to the Philippines -> Coming Soon panel with an email fallback,
 // since the catalog is PH-outbound only. Choice persisted the same way the
 // website does (localStorage there, AsyncStorage here) so a returning
-// Filipino user never sees this again.
+// Filipino user never sees this again -- BUT the website also keeps a
+// permanent "Applying as a foreign visitor instead?" pill in its hero
+// (reopenDirectionGate() in visa/index.php) so the gate is never a one-way
+// door. This context (rather than a plain hook) exists so that pill, living
+// deep in the tabs navigator, can reopen the exact same gate instance the
+// root layout renders.
 
 import { Colors } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useState } from "react";
 import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const GATE_CHOICE_KEY = "heydream_visa_gate_choice_v1";
 
-export function useGateChoice() {
+interface GateContextType {
+  choice: "ph_outbound" | null | "unknown";
+  choosePhOutbound: () => Promise<void>;
+  reopenGate: () => void;
+}
+
+const GateContext = createContext<GateContextType | undefined>(undefined);
+
+export function GateProvider({ children }: { children: React.ReactNode }) {
   const [choice, setChoice] = useState<"ph_outbound" | null | "unknown">("unknown");
 
   useEffect(() => {
@@ -32,7 +45,22 @@ export function useGateChoice() {
     setChoice("ph_outbound");
   };
 
-  return { choice, choosePhOutbound };
+  // Mirrors reopenDirectionGate() -- doesn't clear the stored choice (a
+  // re-tap of "Filipino Traveling Abroad" just re-confirms the same value),
+  // it only re-shows the gate UI on top of whatever's currently open.
+  const reopenGate = () => setChoice(null);
+
+  return (
+    <GateContext.Provider value={{ choice, choosePhOutbound, reopenGate }}>
+      {children}
+    </GateContext.Provider>
+  );
+}
+
+export function useGateChoice(): GateContextType {
+  const ctx = useContext(GateContext);
+  if (!ctx) throw new Error("useGateChoice must be used within GateProvider");
+  return ctx;
 }
 
 export function VisaGate({ onChoose }: { onChoose: () => void }) {

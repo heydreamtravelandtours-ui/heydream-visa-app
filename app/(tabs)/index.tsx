@@ -5,6 +5,7 @@
 // app/(tabs)/index.tsx for the source of this visual language.
 
 import { ThemedText } from "@/components/themed-text";
+import { useGateChoice } from "@/components/visa-gate";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import * as api from "@/api/client";
@@ -52,6 +53,7 @@ function formatPrice(v: Visa) {
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
+  const { reopenGate } = useGateChoice();
   const [groups, setGroups] = useState<CategoryGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -153,6 +155,11 @@ export default function HomeScreen() {
             </View>
           </View>
         </SafeAreaView>
+
+        <Pressable style={styles.gateSwitchPill} onPress={reopenGate}>
+          <Ionicons name="swap-horizontal" size={13} color={Colors.white} />
+          <ThemedText style={styles.gateSwitchPillText}>Applying as a foreign visitor instead?</ThemedText>
+        </Pressable>
 
         <View style={styles.searchWrap}>
           <Ionicons name="search" size={18} color={Colors.accent} />
@@ -280,6 +287,19 @@ const styles = StyleSheet.create({
   heroBrand: { color: Colors.white, fontSize: 22, fontWeight: "800" },
   heroTagline: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 2 },
   heroActions: { flexDirection: "row", gap: 10 },
+  gateSwitchPill: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    alignItems: "center",
+    gap: 6,
+    backgroundColor: "rgba(255,255,255,0.18)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    marginTop: 14,
+    marginBottom: 14,
+  },
+  gateSwitchPillText: { color: Colors.white, fontSize: 12, fontWeight: "600" },
   avatarButton: {
     width: 36,
     height: 36,
