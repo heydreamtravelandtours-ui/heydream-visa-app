@@ -156,8 +156,11 @@ export default function HomeScreen() {
           </View>
         </SafeAreaView>
 
-        <Pressable style={styles.gateSwitchPill} onPress={reopenGate}>
-          <Ionicons name="swap-horizontal" size={13} color={Colors.white} />
+        <Pressable
+          style={({ pressed }) => [styles.gateSwitchPill, pressed && styles.gateSwitchPillPressed]}
+          onPress={reopenGate}
+        >
+          <Ionicons name="swap-horizontal" size={13} color="#6C5CE7" />
           <ThemedText style={styles.gateSwitchPillText}>Applying as a foreign visitor instead?</ThemedText>
         </Pressable>
 
@@ -291,15 +294,21 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignSelf: "flex-start",
     alignItems: "center",
-    gap: 6,
-    backgroundColor: "rgba(255,255,255,0.18)",
-    borderRadius: 20,
-    paddingHorizontal: 12,
-    paddingVertical: 7,
+    gap: 7,
+    backgroundColor: Colors.white,
+    borderRadius: 30,
+    paddingHorizontal: 16,
+    paddingVertical: 9,
     marginTop: 14,
-    marginBottom: 14,
+    marginBottom: 16,
+    shadowColor: Colors.black,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 10,
+    elevation: 4,
   },
-  gateSwitchPillText: { color: Colors.white, fontSize: 12, fontWeight: "600" },
+  gateSwitchPillPressed: { opacity: 0.85, transform: [{ translateY: -1 }] },
+  gateSwitchPillText: { color: "#6C5CE7", fontSize: 12.5, fontWeight: "700" },
   avatarButton: {
     width: 36,
     height: 36,
