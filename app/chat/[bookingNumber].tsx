@@ -11,7 +11,8 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
-import { useLocalSearchParams } from "expo-router";
+import { useAuth } from "@/contexts/auth-context";
+import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -39,6 +40,8 @@ const POLL_INTERVAL_MS = 5000;
 
 export default function BookingChatScreen() {
   const { bookingNumber } = useLocalSearchParams<{ bookingNumber: string }>();
+  const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -57,6 +60,11 @@ export default function BookingChatScreen() {
   }, [bookingNumber]);
 
   useEffect(() => {
+    if (isAuthLoading) return;
+    if (!user) {
+      router.replace("/(auth)/login");
+      return;
+    }
     (async () => {
       setIsLoading(true);
       await load();
@@ -64,7 +72,7 @@ export default function BookingChatScreen() {
     })();
     const interval = setInterval(load, POLL_INTERVAL_MS);
     return () => clearInterval(interval);
-  }, [load]);
+  }, [load, user, isAuthLoading, router]);
 
   useEffect(() => {
     scrollRef.current?.scrollToEnd({ animated: true });

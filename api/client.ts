@@ -34,10 +34,36 @@ async function authHeaders(): Promise<Record<string, string>> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+// Every backend endpoint this app calls fails auth the same two ways (see
+// api/get-my-visa-bookings.php, User Account/api/{pay-flight-booking,
+// upload-api}.php -> 'Unauthorized'; visa/api/booking-chat.php -> 'Please
+// sign in.'). A stale/invalid token (e.g. its user_sessions row got wiped
+// by a database reset, or just naturally expired) previously looked
+// identical to a real network error on every screen, and `user` stayed
+// populated in local storage regardless, so the UI kept claiming you were
+// logged in while every request silently failed. Detecting this centrally
+// lets AuthProvider clear the stale session automatically instead of each
+// screen showing a raw "Unauthorized" string forever.
+function isAuthFailure(result: ApiResult): boolean {
+  return result?.success === false && (result.message === "Unauthorized" || result.message === "Please sign in.");
+}
+
+let authFailureHandler: (() => void) | null = null;
+export function registerAuthFailureHandler(fn: () => void) {
+  authFailureHandler = fn;
+}
+
+function checkAuthFailure<T>(result: ApiResult<T>): ApiResult<T> {
+  if (isAuthFailure(result)) {
+    authFailureHandler?.();
+  }
+  return result;
+}
+
 export async function apiGet<T = any>(url: string): Promise<ApiResult<T>> {
   try {
     const res = await fetch(url, { headers: await authHeaders() });
-    return await res.json();
+    return checkAuthFailure(await res.json());
   } catch (e: any) {
     return { success: false, message: e?.message || "Network error" };
   }
@@ -53,7 +79,7 @@ export async function apiPostJson<T = any>(
       headers: { "Content-Type": "application/json", ...(await authHeaders()) },
       body: JSON.stringify(body),
     });
-    return await res.json();
+    return checkAuthFailure(await res.json());
   } catch (e: any) {
     return { success: false, message: e?.message || "Network error" };
   }
@@ -69,7 +95,7 @@ export async function apiPostForm<T = any>(
       headers: await authHeaders(),
       body: form,
     });
-    return await res.json();
+    return checkAuthFailure(await res.json());
   } catch (e: any) {
     return { success: false, message: e?.message || "Network error" };
   }

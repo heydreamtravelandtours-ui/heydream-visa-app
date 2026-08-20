@@ -55,6 +55,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  // Any API call that comes back "Unauthorized"/"Please sign in." (stale or
+  // expired token) should drop the local session immediately, instead of
+  // leaving `user` populated while every subsequent request keeps failing.
+  useEffect(() => {
+    api.registerAuthFailureHandler(() => {
+      api.clearToken();
+      secureStorage.removeItem(USER_KEY);
+      setUser(null);
+    });
+  }, []);
+
   const login: AuthContextType["login"] = async (email, password) => {
     const result = await api.login(email, password);
     if (result.success && result.token) {

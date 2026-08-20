@@ -17,6 +17,7 @@ import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
 import { API_BASE_URL } from "@/api/config";
 import { appendFileToFormData } from "@/api/form-file";
+import { useAuth } from "@/contexts/auth-context";
 import { showAlert } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -48,6 +49,8 @@ interface Booking {
   booking_status: string;
   payment_status: string;
   visa_status: string;
+  application_status: string;
+  current_visa_document_status: string | null;
   visa_type_selected: string | null;
   is_renewal: number;
   email: string;
@@ -58,6 +61,41 @@ interface Booking {
   required_documents: string;
   travel_documents: number;
   ready_for_travel: number;
+  voucher_code: string | null;
+  voucher_name: string | null;
+  discount_amount: number | null;
+}
+
+// Mirrors User Account/profile.php's $applicationStatusProfile derivation
+// (see the comment there referencing admin/dashboard.php's visaStatusInfo())
+// -- the raw `application_status` DB column stays 'PENDING' by default and
+// is only ever advanced to FOR_RELEASING/FOR_PICKUP/CLAIMED once a booking
+// is confirmed, so this label is NOT the same thing as visa_status.
+function getApplicationStatusLabel(b: Booking): string {
+  const bs = (b.booking_status || "pending").toLowerCase();
+  const vs = (b.application_status || "PENDING").toUpperCase();
+  if (bs === "cancelled") return "Declined";
+  if (bs === "completed") return "Completed";
+  if (bs === "confirmed") {
+    if (vs === "CLAIMED") return "Claimed";
+    if (vs === "FOR_PICKUP") return "For Pick-up";
+    if (vs === "FOR_RELEASING") return "For Releasing";
+    return "Approved";
+  }
+  return b.admin_notes && b.admin_notes.trim() ? "Incomplete" : "Pending Review";
+}
+
+// Mirrors profile.php's $vStatusProfile derivation for renewals -- depends
+// on the approval state of the specific "Current Visa" document upload
+// (current_visa_document_status, added server-side), not just visa_status.
+function getCurrentVisaStatusLabel(b: Booking): string {
+  let raw = (b.visa_status || "PENDING").toUpperCase();
+  if (raw === "PAID") raw = "APPROVED";
+  if (raw === "N/A") return "N/A";
+  if (b.current_visa_document_status === null) return "PENDING";
+  if (raw === "APPROVED") return "APPROVED";
+  if (b.current_visa_document_status === "rejected") return "REJECTED";
+  return "PENDING REVIEW";
 }
 
 function statusStyle(status: string) {
@@ -184,6 +222,7 @@ function TrackingTracker({ steps }: { steps: TrackingStep[] }) {
 export default function ApplicationDetailScreen() {
   const { id: bookingNumber } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { user, isLoading: isAuthLoading } = useAuth();
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -209,12 +248,17 @@ export default function ApplicationDetailScreen() {
   }, [bookingNumber]);
 
   useEffect(() => {
+    if (isAuthLoading) return;
+    if (!user) {
+      router.replace("/(auth)/login");
+      return;
+    }
     (async () => {
       setIsLoading(true);
       await load();
       setIsLoading(false);
     })();
-  }, [load]);
+  }, [load, user, isAuthLoading, router]);
 
   const requirements = (booking?.required_documents || "")
     .split("\n")
@@ -330,15 +374,46 @@ export default function ApplicationDetailScreen() {
 
         <View style={styles.section}>
           <Row label="Applicant" value={`${booking.email}${booking.phone ? " • " + booking.phone : ""}`} />
+          <Row
+            label="Target Date"
+            value={
+              booking.travel_date && booking.travel_date !== "0000-00-00"
+                ? new Date(booking.travel_date).toLocaleDateString(undefined, {
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                  })
+                : "To be determined"
+            }
+          />
           <Row label="Travelers" value={`${booking.number_of_travelers} Guest(s)`} />
-          <Row label="Visa Status" value={booking.visa_status} />
-          <Row label="Payment" value={booking.payment_status} />
+          <Row label="Application Status" value={getApplicationStatusLabel(booking)} />
+          {!!booking.is_renewal && (
+            <Row label="Current Visa Status" value={getCurrentVisaStatusLabel(booking)} />
+          )}
+          <Row
+            label="Payment Status"
+            value={
+              !!booking.payment_proof && booking.payment_status !== "paid"
+                ? "We're checking your payment"
+                : booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)
+            }
+          />
           <Row label="Processing" value={booking.package_duration} />
           <Row
             label="Total"
             value={`${booking.currency}${Number(booking.total_amount).toLocaleString()}`}
-            last
+            last={!booking.voucher_code}
           />
+          {!!booking.voucher_code && (
+            <Row
+              label="Voucher Applied"
+              value={`${booking.voucher_name || booking.voucher_code} (${booking.voucher_code})${
+                booking.discount_amount ? ` • -${booking.currency}${Number(booking.discount_amount).toLocaleString()}` : ""
+              }`}
+              last
+            />
+          )}
         </View>
 
         {!!booking.payment_proof && (
