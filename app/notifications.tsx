@@ -44,11 +44,18 @@ export default function NotificationsScreen() {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const result = await api.getNotifications();
     if (result.success) {
       setNotifications(result.notifications || []);
+      setErrorMessage(null);
+    } else {
+      // Previously silent on failure -- looked identical to "genuinely no
+      // notifications" (an expired/missing token resolves to the same
+      // {success:false} shape as a logged-out visitor). Surface it instead.
+      setErrorMessage(result.message || "Failed to load notifications.");
     }
   }, []);
 
@@ -99,6 +106,11 @@ export default function NotificationsScreen() {
 
       {isLoading ? (
         <ActivityIndicator style={styles.loading} color={Colors.primary} />
+      ) : errorMessage ? (
+        <View style={styles.centered}>
+          <Ionicons name="alert-circle-outline" size={40} color="#B00020" />
+          <ThemedText style={styles.errorText}>{errorMessage}</ThemedText>
+        </View>
       ) : notifications.length === 0 ? (
         <View style={styles.centered}>
           <Ionicons name="notifications-off-outline" size={40} color={Colors.text} />
@@ -146,6 +158,7 @@ const styles = StyleSheet.create({
   loading: { marginTop: 60 },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", gap: 10, padding: 32 },
   emptyText: { color: Colors.text },
+  errorText: { color: "#B00020", textAlign: "center" },
   markAllText: { color: Colors.gold, fontWeight: "700", fontSize: 13 },
   scrollContent: { padding: 20 },
   card: {
