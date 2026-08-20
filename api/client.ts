@@ -142,6 +142,18 @@ export function uploadDocument(form: FormData) {
   return apiPostForm(API_ENDPOINTS.UPLOAD_DOCUMENT, form);
 }
 
+export function listDocuments(bookingNumber: string) {
+  return apiGet(`${API_ENDPOINTS.UPLOAD_DOCUMENT}?action=list&booking_number=${encodeURIComponent(bookingNumber)}`);
+}
+
+export function deleteDocument(docId: number, bookingNumber: string) {
+  const form = new FormData();
+  form.append("action", "delete");
+  form.append("id", String(docId));
+  form.append("booking_number", bookingNumber);
+  return apiPostForm(API_ENDPOINTS.UPLOAD_DOCUMENT, form);
+}
+
 export function submitPayment(form: FormData) {
   return apiPostForm(API_ENDPOINTS.PAY_BOOKING, form);
 }
