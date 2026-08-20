@@ -23,6 +23,7 @@ interface AuthContextType {
   user: VisaUser | null;
   isLoading: boolean;
   login: (email: string, password: string) => Promise<{ success: boolean; message?: string }>;
+  loginWithGoogle: (idToken: string) => Promise<{ success: boolean; message?: string }>;
   register: (
     fullName: string,
     email: string,
@@ -65,6 +66,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return { success: false, message: result.message || "Login failed" };
   };
 
+  const loginWithGoogle: AuthContextType["loginWithGoogle"] = async (idToken) => {
+    const result = await api.googleLogin(idToken);
+    if (result.success && result.token) {
+      await api.setToken(result.token);
+      await secureStorage.setItem(USER_KEY, JSON.stringify(result.user));
+      setUser(result.user);
+      return { success: true };
+    }
+    return { success: false, message: result.message || "Google sign-in failed" };
+  };
+
   const register: AuthContextType["register"] = async (fullName, email, password, phone) => {
     const result = await api.register(fullName, email, password, phone);
     return { success: !!result.success, message: result.message };
@@ -77,7 +89,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, register, logout }}>
+    <AuthContext.Provider value={{ user, isLoading, login, loginWithGoogle, register, logout }}>
       {children}
     </AuthContext.Provider>
   );

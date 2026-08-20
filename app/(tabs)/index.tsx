@@ -107,9 +107,18 @@ export default function HomeScreen() {
         <View style={styles.heroOverlay} />
         <SafeAreaView edges={["top"]}>
           <View style={styles.heroTopRow}>
-            <View>
-              <ThemedText style={styles.heroBrand}>HeyDream Visa</ThemedText>
-              <ThemedText style={styles.heroTagline}>Your passport to the world</ThemedText>
+            <View style={styles.heroBrandRow}>
+              <View style={styles.heroLogoBadge}>
+                <Image
+                  source={require("@/assets/images/heydream-logo.png")}
+                  style={styles.heroLogoImage}
+                  contentFit="contain"
+                />
+              </View>
+              <View>
+                <ThemedText style={styles.heroBrand}>HeyDream Visa</ThemedText>
+                <ThemedText style={styles.heroTagline}>Your passport to the world</ThemedText>
+              </View>
             </View>
             <Pressable
               style={styles.avatarButton}
@@ -232,6 +241,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 8,
   },
+  heroBrandRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  heroLogoBadge: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: Colors.white,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: 5,
+  },
+  heroLogoImage: { width: "100%", height: "100%" },
   heroBrand: { color: Colors.white, fontSize: 22, fontWeight: "800" },
   heroTagline: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 2 },
   avatarButton: {

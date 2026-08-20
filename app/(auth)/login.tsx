@@ -1,3 +1,4 @@
+import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { Ionicons } from "@expo/vector-icons";
@@ -94,6 +95,14 @@ export default function LoginScreen() {
               <Text style={styles.loginButtonText}>Log In</Text>
             )}
           </Pressable>
+
+          <View style={styles.dividerRow}>
+            <View style={styles.dividerLine} />
+            <Text style={styles.dividerText}>or</Text>
+            <View style={styles.dividerLine} />
+          </View>
+
+          <GoogleSignInButton onSuccess={() => router.replace("/(tabs)/index")} />
         </View>
 
         <View style={styles.footer}>
@@ -141,6 +150,9 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   loginButtonText: { color: "#fff", fontSize: 16, fontWeight: "700" },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 12, marginVertical: 4 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#e2e8f0" },
+  dividerText: { color: "#94a3b8", fontSize: 13 },
   footer: { flexDirection: "row", justifyContent: "center", marginTop: "auto", marginBottom: 20 },
   footerText: { color: "#64748b" },
   registerText: { color: Colors.primary, fontWeight: "700" },

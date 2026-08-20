@@ -76,7 +76,11 @@ export function VisaGate({ onChoose }: { onChoose: () => void }) {
       <StatusBar style="light" />
       <View style={styles.brand}>
         <View style={styles.logoBadge}>
-          <Ionicons name="airplane" size={22} color={Colors.primary} />
+          <Image
+            source={require("../assets/images/heydream-logo.png")}
+            style={styles.logoImage}
+            contentFit="contain"
+          />
         </View>
         <Text style={styles.brandText}>HeyDream Visa</Text>
       </View>
@@ -153,7 +157,9 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
     alignItems: "center",
     justifyContent: "center",
+    padding: 6,
   },
+  logoImage: { width: "100%", height: "100%" },
   brandText: { color: Colors.white, fontSize: 18, fontWeight: "700" },
   title: { color: Colors.white, fontSize: 28, fontWeight: "800", marginBottom: 8 },
   subtitle: { color: "rgba(255,255,255,0.8)", fontSize: 15, lineHeight: 21, marginBottom: 28 },

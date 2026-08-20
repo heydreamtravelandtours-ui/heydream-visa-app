@@ -83,6 +83,10 @@ export function login(email: string, password: string) {
   return apiPostJson(API_ENDPOINTS.LOGIN, { email, password });
 }
 
+export function googleLogin(idToken: string) {
+  return apiPostJson(API_ENDPOINTS.GOOGLE_LOGIN, { id_token: idToken });
+}
+
 export function register(fullName: string, email: string, password: string, phone?: string) {
   return apiPostJson(API_ENDPOINTS.REGISTER, {
     full_name: fullName,

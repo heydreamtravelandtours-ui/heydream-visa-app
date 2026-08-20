@@ -32,9 +32,17 @@ const PROD_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) || "";
 
 export const API_BASE_URL = __DEV__ ? DEV_BASE_URL : PROD_BASE_URL;
 
+// Same Firebase Web OAuth client the website already verifies Google
+// sign-ins against (config/firebase_config.php's FIREBASE_CLIENT_ID) --
+// using it here too means api/mobile-google-login.php needs no separate
+// native client ID to accept this app's tokens.
+export const GOOGLE_WEB_CLIENT_ID =
+  "462077710045-1j3bq6f5cc55b80gt6ab9sh89tp23hkg.apps.googleusercontent.com";
+
 export const API_ENDPOINTS = {
   LOGIN: `${API_BASE_URL}/api/mobile-login.php`,
   REGISTER: `${API_BASE_URL}/api/mobile-register.php`,
+  GOOGLE_LOGIN: `${API_BASE_URL}/api/mobile-google-login.php`,
   VISA_LIST: `${API_BASE_URL}/api/get-visa-list.php`,
   VISA_DETAILS: `${API_BASE_URL}/api/get-visa-details.php`,
   MY_VISA_BOOKINGS: `${API_BASE_URL}/api/get-my-visa-bookings.php`,
