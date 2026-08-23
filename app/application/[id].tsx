@@ -61,6 +61,8 @@ interface Booking {
   required_documents: string;
   travel_documents: number;
   ready_for_travel: number;
+  meetup_required: boolean;
+  meetup_completed: number;
   voucher_code: string | null;
   voucher_name: string | null;
   discount_amount: number | null;
@@ -126,12 +128,14 @@ interface TrackingStep {
 // the "Notes from your travel partner" card below), just not step-shaped.
 function getTrackingSteps(b: Booking): TrackingStep[] {
   if (b.booking_status === "cancelled") {
-    return [
+    const cancelledSteps: TrackingStep[] = [
       { label: "Booking Received", description: "This booking has been cancelled.", state: "urgent" },
       { label: "Documents", description: "", state: "urgent" },
       { label: "Payment", description: "", state: "urgent" },
-      { label: "Ready for Travel", description: "", state: "urgent" },
     ];
+    if (b.meetup_required) cancelledSteps.push({ label: "In-Person Meet-up", description: "", state: "urgent" });
+    cancelledSteps.push({ label: "Ready for Travel", description: "", state: "urgent" });
+    return cancelledSteps;
   }
 
   const visaNeedsAction = b.visa_status === "REQUESTED" || b.visa_status === "DECLINED";
@@ -169,17 +173,36 @@ function getTrackingSteps(b: Booking): TrackingStep[] {
     paymentStep = { label: "Payment", description: "Awaiting booking confirmation.", state: "pending" };
   }
 
+  // Only shown at all when this booking's visa type has the "In-Person
+  // Meet-up" requirement checked in admin/content-manager.php (see
+  // bookingRequiresMeetup() server-side) -- driven by the admin's own
+  // Meet-up Completed checkbox, same "plain admin checkbox" pattern as
+  // Ready for Travel below, not auto-derived from payment/documents.
+  const meetupStep: TrackingStep | null = !b.meetup_required
+    ? null
+    : b.meetup_completed
+      ? { label: "In-Person Meet-up", description: "Your in-person meet-up is complete.", state: "completed" }
+      : b.booking_status === "confirmed" || b.booking_status === "completed"
+        ? {
+            label: "In-Person Meet-up",
+            description: `Please contact us to schedule your in-person meet-up -- call ${SUPPORT_PHONE} or email ${SUPPORT_EMAIL}.`,
+            state: "active",
+          }
+        : { label: "In-Person Meet-up", description: "This step will be available once your booking is confirmed.", state: "pending" };
+
   const readyStep: TrackingStep = b.ready_for_travel
     ? { label: "Ready for Travel", description: "You're all set!", state: "completed" }
     : { label: "Ready for Travel", description: "Final step once everything else is done.", state: "pending" };
 
-  return [
+  const steps: TrackingStep[] = [
     { label: "Booking Received", description: "Your request was submitted.", state: "completed" },
     documentsStep,
     approvalStep,
     paymentStep,
-    readyStep,
   ];
+  if (meetupStep) steps.push(meetupStep);
+  steps.push(readyStep);
+  return steps;
 }
 
 const STEP_COLORS: Record<StepState, { bg: string; fg: string }> = {
