@@ -99,8 +99,9 @@ function formatApplicantName(a: ApplicantDraft) {
 }
 
 export default function ApplyScreen() {
-  const { id, renewal } = useLocalSearchParams<{ id: string; renewal?: string }>();
+  const { id, renewal, direction: directionParam } = useLocalSearchParams<{ id: string; renewal?: string; direction?: string }>();
   const isRenewal = renewal === "1";
+  const direction = directionParam === "inbound" ? "inbound" : "outbound";
   const router = useRouter();
   const { user } = useAuth();
 
@@ -114,7 +115,7 @@ export default function ApplyScreen() {
   const [applicants, setApplicants] = useState<ApplicantDraft[]>([emptyApplicant()]);
   const [email, setEmail] = useState("");
   const [destination, setDestination] = useState("");
-  const [embassy, setEmbassy] = useState("manila");
+  const [embassy, setEmbassy] = useState(direction === "inbound" ? "" : "manila");
   const [travelDate, setTravelDate] = useState<Date | null>(null);
   const [occupation, setOccupation] = useState("");
   const [travelHistory, setTravelHistory] = useState("");
@@ -127,7 +128,7 @@ export default function ApplyScreen() {
   useEffect(() => {
     (async () => {
       setIsLoadingVisa(true);
-      const result = await api.getVisaDetails(id);
+      const result = await api.getVisaDetails(id, direction);
       if (result.success) {
         setVisa(result.data);
         setDestination(result.data.title);
@@ -139,7 +140,7 @@ export default function ApplyScreen() {
       }
       setIsLoadingVisa(false);
     })();
-  }, [id]);
+  }, [id, direction]);
 
   useEffect(() => {
     if (user?.email) setEmail(user.email);
@@ -266,7 +267,7 @@ export default function ApplyScreen() {
 
     const lead = applicants[0];
     const result = await api.saveVisaBooking({
-      service_type: "Visa Assistance",
+      service_type: direction === "inbound" ? "Foreign Visitor Visa" : "Visa Assistance",
       package_name: visa?.title,
       package_duration: selectedOption
         ? `${selectedOption.visa_type} - ${selectedOption.label} (${selectedOption.processing_time})`
@@ -285,7 +286,7 @@ export default function ApplyScreen() {
       processing_option_id: selectedOption?.id ?? null,
       visa_type_selected: selectedOption?.visa_type ?? null,
       package_source_id: visa?.id ?? null,
-      package_source_type: "visa",
+      package_source_type: direction === "inbound" ? "visitor_visa" : "visa",
       is_renewal: isRenewal ? 1 : 0,
     });
 
@@ -525,28 +526,42 @@ export default function ApplyScreen() {
                 onChangeText={setEmail}
               />
               <LabeledInput
-                label="Destination"
+                label={direction === "inbound" ? "Your Home Country" : "Destination"}
                 required
                 placeholder="Country name"
                 value={destination}
                 onChangeText={setDestination}
               />
-              <View style={styles.fieldWrap}>
-                <ThemedText style={styles.fieldLabel}>Embassy/Consulate</ThemedText>
-                <View style={styles.embassyRow}>
-                  {EMBASSIES.map((e) => (
-                    <Pressable
-                      key={e.value}
-                      style={[styles.embassyPill, embassy === e.value && styles.embassyPillSelected]}
-                      onPress={() => setEmbassy(e.value)}
-                    >
-                      <ThemedText style={embassy === e.value ? styles.embassyTextSelected : undefined}>
-                        {e.label}
-                      </ThemedText>
-                    </Pressable>
-                  ))}
+              {direction === "inbound" ? (
+                // A foreign applicant entering the Philippines wouldn't pick
+                // from a fixed list of PH cities (that's outbound-only --
+                // where a Filipino goes to apply for a FOREIGN visa) -- free
+                // text instead, since HeyDream can't maintain a dropdown of
+                // every country's PH embassy.
+                <LabeledInput
+                  label="PH Embassy/Consulate Used"
+                  placeholder="e.g. Philippine Embassy in your country (if applicable)"
+                  value={embassy}
+                  onChangeText={setEmbassy}
+                />
+              ) : (
+                <View style={styles.fieldWrap}>
+                  <ThemedText style={styles.fieldLabel}>Embassy/Consulate</ThemedText>
+                  <View style={styles.embassyRow}>
+                    {EMBASSIES.map((e) => (
+                      <Pressable
+                        key={e.value}
+                        style={[styles.embassyPill, embassy === e.value && styles.embassyPillSelected]}
+                        onPress={() => setEmbassy(e.value)}
+                      >
+                        <ThemedText style={embassy === e.value ? styles.embassyTextSelected : undefined}>
+                          {e.label}
+                        </ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
                 </View>
-              </View>
+              )}
               <DateField
                 label="Target Travel Date"
                 required

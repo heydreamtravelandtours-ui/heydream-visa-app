@@ -53,7 +53,8 @@ function formatPrice(v: Visa) {
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuth();
-  const { reopenGate } = useGateChoice();
+  const { choice, reopenGate } = useGateChoice();
+  const direction = choice === "foreign_inbound" ? "inbound" : "outbound";
   const [groups, setGroups] = useState<CategoryGroup[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -73,14 +74,14 @@ export default function HomeScreen() {
   }, [user]);
 
   const load = useCallback(async () => {
-    const result = await api.getVisaList();
+    const result = await api.getVisaList(direction);
     if (result.success) {
       setGroups(result.data || []);
       setErrorMessage(null);
     } else {
       setErrorMessage(result.message || result.error || "Failed to load visas.");
     }
-  }, []);
+  }, [direction]);
 
   useEffect(() => {
     (async () => {
@@ -130,7 +131,9 @@ export default function HomeScreen() {
               </View>
               <View>
                 <ThemedText style={styles.heroBrand}>HeyDream Visa</ThemedText>
-                <ThemedText style={styles.heroTagline}>Your passport to the world</ThemedText>
+                <ThemedText style={styles.heroTagline}>
+                  {direction === "inbound" ? "Entering the Philippines" : "Your passport to the world"}
+                </ThemedText>
               </View>
             </View>
             <View style={styles.heroActions}>
@@ -161,7 +164,11 @@ export default function HomeScreen() {
           onPress={reopenGate}
         >
           <Ionicons name="swap-horizontal" size={13} color="#6C5CE7" />
-          <ThemedText style={styles.gateSwitchPillText}>Applying as a foreign visitor instead?</ThemedText>
+          <ThemedText style={styles.gateSwitchPillText}>
+            {direction === "inbound"
+              ? "Filipino traveling abroad instead?"
+              : "Applying as a foreign visitor instead?"}
+          </ThemedText>
         </Pressable>
 
         <View style={styles.searchWrap}>
@@ -226,7 +233,7 @@ export default function HomeScreen() {
                   <Pressable
                     key={visa.id}
                     style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-                    onPress={() => router.push(`/visa/${visa.id}`)}
+                    onPress={() => router.push(`/visa/${visa.id}?direction=${direction}`)}
                   >
                     <View style={styles.cardFlagWrap}>
                       {visa.icon_type === "image" && visa.icon_value ? (

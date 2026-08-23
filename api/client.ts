@@ -122,12 +122,16 @@ export function register(fullName: string, email: string, password: string, phon
   });
 }
 
-export function getVisaList() {
-  return apiGet(API_ENDPOINTS.VISA_LIST);
+// direction: 'outbound' (default, Filipino traveling abroad) or 'inbound'
+// (Foreign Visitor to the Philippines, see components/visa-gate.tsx) --
+// forwarded to get-visa-list.php/get-visa-details.php, which branch between
+// the visas and visitor_visas tables.
+export function getVisaList(direction: "outbound" | "inbound" = "outbound") {
+  return apiGet(`${API_ENDPOINTS.VISA_LIST}?direction=${direction}`);
 }
 
-export function getVisaDetails(idOrTitle: string | number) {
-  return apiGet(`${API_ENDPOINTS.VISA_DETAILS}?id=${encodeURIComponent(String(idOrTitle))}`);
+export function getVisaDetails(idOrTitle: string | number, direction: "outbound" | "inbound" = "outbound") {
+  return apiGet(`${API_ENDPOINTS.VISA_DETAILS}?id=${encodeURIComponent(String(idOrTitle))}&direction=${direction}`);
 }
 
 export function getMyVisaBookings() {

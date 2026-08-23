@@ -19,7 +19,7 @@ export const unstable_settings = {
 };
 
 function GatedApp() {
-  const { choice, choosePhOutbound } = useGateChoice();
+  const { choice, choosePhOutbound, chooseForeignInbound } = useGateChoice();
 
   if (choice === "unknown") {
     return (
@@ -42,13 +42,13 @@ function GatedApp() {
         <Stack.Screen name="chat/[bookingNumber]" />
         <Stack.Screen name="notifications" />
       </Stack>
-      {choice !== "ph_outbound" && (
+      {choice !== "ph_outbound" && choice !== "foreign_inbound" && (
         // Overlays the Stack instead of replacing it -- mirrors
         // visa/index.php's gate-lock overlay, so reopening it (the
-        // "Applying as a foreign visitor instead?" pill on the home tab)
-        // doesn't lose whatever screen/tab was already open underneath.
+        // direction-switch pill on the home tab) doesn't lose whatever
+        // screen/tab was already open underneath.
         <View style={StyleSheet.absoluteFillObject}>
-          <VisaGate onChoose={choosePhOutbound} />
+          <VisaGate onChoosePhOutbound={choosePhOutbound} onChooseForeignInbound={chooseForeignInbound} />
         </View>
       )}
     </>

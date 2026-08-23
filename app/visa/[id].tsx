@@ -59,7 +59,8 @@ function formatPrice(v: VisaDetails) {
 }
 
 export default function VisaDetailsScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, direction: directionParam } = useLocalSearchParams<{ id: string; direction?: string }>();
+  const direction = directionParam === "inbound" ? "inbound" : "outbound";
   const router = useRouter();
   const { user } = useAuth();
   const [visa, setVisa] = useState<VisaDetails | null>(null);
@@ -70,7 +71,7 @@ export default function VisaDetailsScreen() {
   useEffect(() => {
     (async () => {
       setIsLoading(true);
-      const result = await api.getVisaDetails(id);
+      const result = await api.getVisaDetails(id, direction);
       if (result.success) {
         setVisa(result.data);
         const firstType = (result.data.visa_types || "").split(",").map((t: string) => t.trim()).filter(Boolean)[0];
@@ -80,7 +81,7 @@ export default function VisaDetailsScreen() {
       }
       setIsLoading(false);
     })();
-  }, [id]);
+  }, [id, direction]);
 
   const visaTypeList: string[] = useMemo(
     () => (visa?.visa_types || "").split(",").map((t) => t.trim()).filter(Boolean),
@@ -126,7 +127,8 @@ export default function VisaDetailsScreen() {
       router.push("/(auth)/login");
       return;
     }
-    router.push(renewal ? `/apply/${id}?renewal=1` : `/apply/${id}`);
+    const params = `direction=${direction}${renewal ? "&renewal=1" : ""}`;
+    router.push(`/apply/${id}?${params}`);
   };
 
   if (isLoading) {

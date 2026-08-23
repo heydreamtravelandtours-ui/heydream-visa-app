@@ -1,15 +1,14 @@
 // components/visa-gate.tsx
 // Mirrors visa/index.php's "Who's applying?" direction gate exactly:
-// Filipino Traveling Abroad -> straight into the app (remembered), Foreign
-// Visitor to the Philippines -> Coming Soon panel with an email fallback,
-// since the catalog is PH-outbound only. Choice persisted the same way the
-// website does (localStorage there, AsyncStorage here) so a returning
-// Filipino user never sees this again -- BUT the website also keeps a
-// permanent "Applying as a foreign visitor instead?" pill in its hero
-// (reopenDirectionGate() in visa/index.php) so the gate is never a one-way
-// door. This context (rather than a plain hook) exists so that pill, living
-// deep in the tabs navigator, can reopen the exact same gate instance the
-// root layout renders.
+// Filipino Traveling Abroad -> outbound catalog, Foreign Visitor to the
+// Philippines -> inbound catalog (visitor_visas table, see get-visa-list.php/
+// get-visa-details.php's direction param). Choice persisted the same way the
+// website does (localStorage there, AsyncStorage here) so a returning user
+// never sees this again -- BUT the website also keeps a permanent "switch"
+// pill in its hero (reopenDirectionGate() in visa/index.php) so the gate is
+// never a one-way door; the Home tab's pill mirrors that here. This context
+// (rather than a plain hook) exists so that pill, living deep in the tabs
+// navigator, can reopen the exact same gate instance the root layout renders.
 
 import { Colors } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
@@ -17,26 +16,29 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
 import { createContext, useContext, useEffect, useState } from "react";
-import { Linking, Pressable, StyleSheet, Text, View } from "react-native";
+import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 const GATE_CHOICE_KEY = "heydream_visa_gate_choice_v1";
 
+export type GateChoice = "ph_outbound" | "foreign_inbound";
+
 interface GateContextType {
-  choice: "ph_outbound" | null | "unknown";
+  choice: GateChoice | null | "unknown";
   choosePhOutbound: () => Promise<void>;
+  chooseForeignInbound: () => Promise<void>;
   reopenGate: () => void;
 }
 
 const GateContext = createContext<GateContextType | undefined>(undefined);
 
 export function GateProvider({ children }: { children: React.ReactNode }) {
-  const [choice, setChoice] = useState<"ph_outbound" | null | "unknown">("unknown");
+  const [choice, setChoice] = useState<GateChoice | null | "unknown">("unknown");
 
   useEffect(() => {
     (async () => {
       const stored = await AsyncStorage.getItem(GATE_CHOICE_KEY);
-      setChoice(stored === "ph_outbound" ? "ph_outbound" : null);
+      setChoice(stored === "ph_outbound" || stored === "foreign_inbound" ? stored : null);
     })();
   }, []);
 
@@ -45,13 +47,18 @@ export function GateProvider({ children }: { children: React.ReactNode }) {
     setChoice("ph_outbound");
   };
 
+  const chooseForeignInbound = async () => {
+    await AsyncStorage.setItem(GATE_CHOICE_KEY, "foreign_inbound");
+    setChoice("foreign_inbound");
+  };
+
   // Mirrors reopenDirectionGate() -- doesn't clear the stored choice (a
-  // re-tap of "Filipino Traveling Abroad" just re-confirms the same value),
-  // it only re-shows the gate UI on top of whatever's currently open.
+  // re-tap of the same card just re-confirms the same value), it only
+  // re-shows the gate UI on top of whatever's currently open.
   const reopenGate = () => setChoice(null);
 
   return (
-    <GateContext.Provider value={{ choice, choosePhOutbound, reopenGate }}>
+    <GateContext.Provider value={{ choice, choosePhOutbound, chooseForeignInbound, reopenGate }}>
       {children}
     </GateContext.Provider>
   );
@@ -63,42 +70,13 @@ export function useGateChoice(): GateContextType {
   return ctx;
 }
 
-export function VisaGate({ onChoose }: { onChoose: () => void }) {
-  const [view, setView] = useState<"picker" | "coming-soon">("picker");
-
-  if (view === "coming-soon") {
-    return (
-      <SafeAreaView style={styles.container}>
-        <StatusBar style="light" />
-        <View style={styles.comingSoon}>
-          <View style={styles.comingSoonIconWrap}>
-            <Ionicons name="airplane" size={40} color={Colors.primary} />
-          </View>
-          <Text style={styles.comingSoonTitle}>Coming Soon</Text>
-          <Text style={styles.comingSoonText}>
-            We&apos;re not yet processing Philippine visas for foreign visitors online,
-            but our team can still help you directly.
-          </Text>
-          <Pressable
-            style={styles.emailButton}
-            onPress={() =>
-              Linking.openURL(
-                "mailto:heydreamtravelandtours@gmail.com?subject=Foreign%20Visitor%20Visa%20Inquiry"
-              )
-            }
-          >
-            <Ionicons name="mail" size={18} color={Colors.white} />
-            <Text style={styles.emailButtonText}>Email Us Directly</Text>
-          </Pressable>
-          <Pressable style={styles.backButton} onPress={() => setView("picker")}>
-            <Ionicons name="arrow-back" size={16} color={Colors.text} />
-            <Text style={styles.backButtonText}>Back</Text>
-          </Pressable>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
+export function VisaGate({
+  onChoosePhOutbound,
+  onChooseForeignInbound,
+}: {
+  onChoosePhOutbound: () => void;
+  onChooseForeignInbound: () => void;
+}) {
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar style="light" />
@@ -121,7 +99,7 @@ export function VisaGate({ onChoose }: { onChoose: () => void }) {
       <View style={styles.cards}>
         <Pressable
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-          onPress={onChoose}
+          onPress={onChoosePhOutbound}
         >
           <Image
             source={{ uri: "https://flagcdn.com/w320/ph.png" }}
@@ -146,7 +124,7 @@ export function VisaGate({ onChoose }: { onChoose: () => void }) {
 
         <Pressable
           style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
-          onPress={() => setView("coming-soon")}
+          onPress={onChooseForeignInbound}
         >
           <Image
             source={{
@@ -218,35 +196,4 @@ const styles = StyleSheet.create({
   cardDesc: { color: "rgba(255,255,255,0.85)", fontSize: 12.5, lineHeight: 17, marginBottom: 10 },
   cardCta: { flexDirection: "row", alignItems: "center", gap: 6 },
   cardCtaText: { color: Colors.gold, fontWeight: "700", fontSize: 13 },
-  comingSoon: { alignItems: "center", padding: 12 },
-  comingSoonIconWrap: {
-    width: 72,
-    height: 72,
-    borderRadius: 36,
-    backgroundColor: Colors.white,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 20,
-  },
-  comingSoonTitle: { color: Colors.white, fontSize: 24, fontWeight: "800", marginBottom: 10 },
-  comingSoonText: {
-    color: "rgba(255,255,255,0.85)",
-    fontSize: 14,
-    lineHeight: 21,
-    textAlign: "center",
-    marginBottom: 24,
-  },
-  emailButton: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    backgroundColor: Colors.gold,
-    paddingHorizontal: 24,
-    paddingVertical: 14,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  emailButtonText: { color: Colors.primary, fontWeight: "700", fontSize: 15 },
-  backButton: { flexDirection: "row", alignItems: "center", gap: 6, padding: 8 },
-  backButtonText: { color: "rgba(255,255,255,0.8)", fontSize: 14 },
 });
