@@ -157,20 +157,33 @@ export default function ApplyScreen() {
 
   const optionsForSelectedType = groupedOptions.find(([t]) => t === selectedType)?.[1] || [];
 
+  // Mirrors visaEffectiveRequirements() in js/visa-booking.js: each entry is
+  // `{label, types}` (a bare string is legacy, treated as types: ['*']),
+  // filtered down to whichever Visa Type is currently selected, with
+  // "Current Visa" stripped then re-added only for a renewal, and
+  // "In-Person Meet-up" always excluded since it has no file to upload --
+  // previously this list showed every requirement for every type
+  // unconditionally, generating a bogus upload slot for meet-up too.
   const requirements: string[] = useMemo(() => {
     if (!visa?.requirements) return [];
     try {
       const parsed = JSON.parse(visa.requirements);
       if (!Array.isArray(parsed)) return [];
-      const labels: string[] = parsed
-        .map((r: any) => (typeof r === "string" ? r : r?.label))
-        .filter((label: any) => typeof label === "string" && label);
-      const withoutCurrentVisa = labels.filter((l) => l !== "Current Visa");
-      return isRenewal ? [...withoutCurrentVisa, "Current Visa"] : withoutCurrentVisa;
+      const items: { label: string; types: string[] }[] = parsed
+        .map((r: any) => (typeof r === "string" ? { label: r, types: ["*"] } : { label: r?.label, types: r?.types || ["*"] }))
+        .filter((r: any) => typeof r.label === "string" && r.label);
+      const uploadable = items.filter((r) => r.label !== "In-Person Meet-up");
+      const withoutCurrentVisa = uploadable.filter((r) => r.label !== "Current Visa");
+      const withRenewal = isRenewal
+        ? [...withoutCurrentVisa, { label: "Current Visa", types: ["*"] }]
+        : withoutCurrentVisa;
+      return withRenewal
+        .filter((r) => !selectedType || r.types.includes("*") || r.types.includes(selectedType))
+        .map((r) => r.label);
     } catch {
       return [];
     }
-  }, [visa, isRenewal]);
+  }, [visa, isRenewal, selectedType]);
 
   const unitPrice = selectedOption ? Number(selectedOption.price) : visa?.price ?? 0;
   const currency = visa?.currency ?? "₱";
