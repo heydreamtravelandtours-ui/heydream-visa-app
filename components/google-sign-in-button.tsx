@@ -43,14 +43,15 @@ export function GoogleSignInButton({ onSuccess }: { onSuccess: () => void }) {
       webClientId: GOOGLE_WEB_CLIENT_ID,
       androidClientId: GOOGLE_ANDROID_CLIENT_ID,
     },
-    // The library's own default native redirect is built from the Android
-    // package name (com.heydreamtravel.visa:/oauthredirect), which has no
-    // intent-filter registered anywhere -- Android has nothing to hand
-    // Google's redirect back to, so the browser just gets stuck after
-    // account selection. app.json's top-level "scheme" (heydreamvisa) IS
-    // registered (that's what makes expo-router's own deep links work), so
-    // redirect there instead.
-    { native: "heydreamvisa:/oauthredirect" }
+    // Google rejects a redirect URI it doesn't recognize as belonging to
+    // this OAuth client (confirmed via Error 400: invalid_request when this
+    // used to point at the app's own "heydreamvisa" scheme instead) --
+    // for this client type it specifically requires the client ID reversed
+    // into "com.googleusercontent.apps.<id>" form (see the commented-out
+    // example already sitting in expo-auth-session's own Google.js). That
+    // scheme is registered as a second entry in app.json's "scheme" array
+    // so Android has an intent-filter to hand the redirect back to.
+    { native: "com.googleusercontent.apps.462077710045-2ekdfb6pjd5uqqfa14eovgqnffeodiqg:/oauthredirect" }
   );
 
   useEffect(() => {

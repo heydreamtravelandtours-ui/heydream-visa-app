@@ -5,7 +5,10 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
-    "scheme": "heydreamvisa",
+    "scheme": [
+      "heydreamvisa",
+      "com.googleusercontent.apps.462077710045-2ekdfb6pjd5uqqfa14eovgqnffeodiqg"
+    ],
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
     "ios": {
