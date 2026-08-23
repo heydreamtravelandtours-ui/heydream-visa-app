@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "HeyDream Visa",
-    "slug": "heydream-visa-app",
+    "slug": "hey-dream-travel-and-tours",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
@@ -52,7 +52,12 @@
       "typedRoutes": true
     },
     "extra": {
-      "router": {}
-    }
+      "router": {},
+      "apiBaseUrl": "https://heydreamtravel.com",
+      "eas": {
+        "projectId": "693d27c8-b667-43cf-a2cb-ee60f03b96b7"
+      }
+    },
+    "owner": "hey-drrea"
   }
 }

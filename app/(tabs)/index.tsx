@@ -164,7 +164,7 @@ export default function HomeScreen() {
           onPress={reopenGate}
         >
           <Ionicons name="swap-horizontal" size={13} color="#6C5CE7" />
-          <ThemedText style={styles.gateSwitchPillText}>
+          <ThemedText style={styles.gateSwitchPillText} numberOfLines={1}>
             {direction === "inbound"
               ? "Filipino traveling abroad instead?"
               : "Applying as a foreign visitor instead?"}
@@ -274,7 +274,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  hero: { height: 220, overflow: "hidden" },
+  hero: { height: 240, overflow: "hidden" },
   heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(13,71,161,0.55)" },
   heroTopRow: {
     flexDirection: "row",
@@ -302,6 +302,7 @@ const styles = StyleSheet.create({
     alignSelf: "flex-start",
     alignItems: "center",
     gap: 7,
+    maxWidth: "78%",
     backgroundColor: Colors.white,
     borderRadius: 30,
     paddingHorizontal: 16,
