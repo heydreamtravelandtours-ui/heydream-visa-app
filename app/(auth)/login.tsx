@@ -1,3 +1,4 @@
+import { ErrorBoundary } from "@/components/error-boundary";
 import { GoogleSignInButton } from "@/components/google-sign-in-button";
 import { HOME_ROUTE } from "@/constants/routes";
 import { Colors } from "@/constants/theme";
@@ -103,7 +104,9 @@ export default function LoginScreen() {
             <View style={styles.dividerLine} />
           </View>
 
-          <GoogleSignInButton onSuccess={() => router.replace(HOME_ROUTE)} />
+          <ErrorBoundary fallback={null}>
+            <GoogleSignInButton onSuccess={() => router.replace(HOME_ROUTE)} />
+          </ErrorBoundary>
         </View>
 
         <View style={styles.footer}>
