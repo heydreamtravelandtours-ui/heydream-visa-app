@@ -4,15 +4,24 @@
 // server-side in api/mobile-google-login.php) -- this button just gets an
 // ID token from Google and hands it to that endpoint via loginWithGoogle().
 //
-// Setup note: this uses the website's existing Firebase Web OAuth client
-// (GOOGLE_WEB_CLIENT_ID in api/config.ts) via a browser-redirect flow, so
-// no separate Android/iOS client ID is required to verify the token
-// server-side. What IS required before this works on a real device: this
-// app's redirect URI (shown by makeRedirectUri below, typically
-// `heydreamvisa://` in a standalone build or an `auth.expo.io/@you/slug`
-// proxy URL in Expo Go) must be added as an authorized redirect URI on
-// that OAuth client in Google Cloud Console -- that's a one-time manual
-// step in the console, not something this code can do on its own.
+// Setup note: the ID token gets verified server-side against the website's
+// existing Firebase Web OAuth client (GOOGLE_WEB_CLIENT_ID), but actually
+// *launching* sign-in on Android needs its own separate Android-type OAuth
+// client (GOOGLE_ANDROID_CLIENT_ID, both in api/config.ts) -- Google's
+// library throws immediately on render without one (postmortem: the app's
+// first release crashed on every screen reaching this button because of
+// exactly that). That Android client also needs "Enable custom URI scheme"
+// turned on in Google Cloud Console (off by default), or Google rejects the
+// whole request with Error 400: invalid_request before the account picker
+// even opens.
+//
+// The `native` override below matters just as much: expo-auth-session's own
+// default redirect is built from the Android package name
+// (com.heydreamtravel.visa:/oauthredirect), which has no intent-filter
+// registered anywhere, so Android has nothing to hand Google's redirect back
+// to and the browser just hangs after you pick an account. Redirecting to
+// app.json's actual registered scheme (heydreamvisa) instead is what lets
+// control return to the app at all.
 
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
@@ -29,10 +38,20 @@ export function GoogleSignInButton({ onSuccess }: { onSuccess: () => void }) {
   const { loginWithGoogle } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
-    webClientId: GOOGLE_WEB_CLIENT_ID,
-    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
-  });
+  const [request, response, promptAsync] = Google.useIdTokenAuthRequest(
+    {
+      webClientId: GOOGLE_WEB_CLIENT_ID,
+      androidClientId: GOOGLE_ANDROID_CLIENT_ID,
+    },
+    // The library's own default native redirect is built from the Android
+    // package name (com.heydreamtravel.visa:/oauthredirect), which has no
+    // intent-filter registered anywhere -- Android has nothing to hand
+    // Google's redirect back to, so the browser just gets stuck after
+    // account selection. app.json's top-level "scheme" (heydreamvisa) IS
+    // registered (that's what makes expo-router's own deep links work), so
+    // redirect there instead.
+    { native: "heydreamvisa:/oauthredirect" }
+  );
 
   useEffect(() => {
     (async () => {
