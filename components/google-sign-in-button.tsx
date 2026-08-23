@@ -16,7 +16,7 @@
 
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
-import { GOOGLE_WEB_CLIENT_ID } from "@/api/config";
+import { GOOGLE_ANDROID_CLIENT_ID, GOOGLE_WEB_CLIENT_ID } from "@/api/config";
 import { showAlert } from "@/utils/cross-alert";
 import * as Google from "expo-auth-session/providers/google";
 import * as WebBrowser from "expo-web-browser";
@@ -31,6 +31,7 @@ export function GoogleSignInButton({ onSuccess }: { onSuccess: () => void }) {
 
   const [request, response, promptAsync] = Google.useIdTokenAuthRequest({
     webClientId: GOOGLE_WEB_CLIENT_ID,
+    androidClientId: GOOGLE_ANDROID_CLIENT_ID,
   });
 
   useEffect(() => {

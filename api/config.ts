@@ -35,9 +35,20 @@ export const API_BASE_URL = __DEV__ ? DEV_BASE_URL : PROD_BASE_URL;
 // Same Firebase Web OAuth client the website already verifies Google
 // sign-ins against (config/firebase_config.php's FIREBASE_CLIENT_ID) --
 // using it here too means api/mobile-google-login.php needs no separate
-// native client ID to accept this app's tokens.
+// native client ID to accept this app's tokens. Still required alongside
+// GOOGLE_ANDROID_CLIENT_ID below -- expo-auth-session's Google provider only
+// ever looks up androidClientId on Android (see components/google-sign-in-
+// button.tsx), but falls back to this one on web (the local dev preview).
 export const GOOGLE_WEB_CLIENT_ID =
   "462077710045-1j3bq6f5cc55b80gt6ab9sh89tp23hkg.apps.googleusercontent.com";
+
+// A separate "Android" OAuth client (same Google Cloud project, tied to this
+// app's package name + release keystore's SHA-1 fingerprint) -- Google
+// requires this distinct client type for native Android sign-in; the Web
+// client above isn't accepted there and expo-auth-session throws immediately
+// on render if it's missing (see the "Google Sign-In crash" postmortem).
+export const GOOGLE_ANDROID_CLIENT_ID =
+  "462077710045-2ekdfb6pjd5uqqfa14eovgqnffeodiqg.apps.googleusercontent.com";
 
 export const API_ENDPOINTS = {
   LOGIN: `${API_BASE_URL}/api/mobile-login.php`,
