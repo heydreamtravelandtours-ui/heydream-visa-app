@@ -8,7 +8,7 @@ import { useAuth } from "@/contexts/auth-context";
 import * as api from "@/api/client";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Pressable,
@@ -24,6 +24,7 @@ interface Booking {
   package_name: string;
   package_duration: string;
   travel_date: string;
+  updated_at: string;
   number_of_travelers: number;
   total_amount: number;
   currency: string;
@@ -32,6 +33,14 @@ interface Booking {
   visa_type_selected: string | null;
   is_renewal: number;
 }
+
+type Tab = "active" | "history";
+
+// Mirrors profile.php's $active_bookings/$history_bookings split exactly:
+// bucketed purely on booking_status, never other fields, so editing
+// anything else about a booking never silently moves it between tabs.
+const ACTIVE_STATUSES = ["pending", "confirmed"];
+const HISTORY_STATUSES = ["completed", "cancelled"];
 
 function statusStyle(status: string) {
   switch (status) {
@@ -53,6 +62,7 @@ export default function ApplicationsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [tab, setTab] = useState<Tab>("active");
 
   const load = useCallback(async () => {
     if (!user) {
@@ -83,12 +93,51 @@ export default function ApplicationsScreen() {
     setIsRefreshing(false);
   };
 
+  const visibleBookings = useMemo(() => {
+    if (tab === "active") {
+      return bookings.filter((b) => ACTIVE_STATUSES.includes(b.booking_status));
+    }
+    return bookings
+      .filter((b) => HISTORY_STATUSES.includes(b.booking_status))
+      .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime());
+  }, [bookings, tab]);
+
   return (
     <View style={styles.container}>
       <SafeAreaView edges={["top"]} style={styles.headerSafe}>
         <View style={styles.header}>
           <ThemedText style={styles.headerTitle}>My Applications</ThemedText>
         </View>
+        {user && (
+          <View style={styles.tabRow}>
+            <Pressable
+              style={[styles.tabPill, tab === "active" && styles.tabPillActive]}
+              onPress={() => setTab("active")}
+            >
+              <Ionicons
+                name="briefcase-outline"
+                size={14}
+                color={tab === "active" ? Colors.white : Colors.dark}
+              />
+              <ThemedText style={[styles.tabPillText, tab === "active" && styles.tabPillTextActive]}>
+                Active Bookings
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={[styles.tabPill, tab === "history" && styles.tabPillActive]}
+              onPress={() => setTab("history")}
+            >
+              <Ionicons
+                name="time-outline"
+                size={14}
+                color={tab === "history" ? Colors.white : Colors.dark}
+              />
+              <ThemedText style={[styles.tabPillText, tab === "history" && styles.tabPillTextActive]}>
+                Booking History
+              </ThemedText>
+            </Pressable>
+          </View>
+        )}
       </SafeAreaView>
 
       {!user ? (
@@ -103,12 +152,16 @@ export default function ApplicationsScreen() {
         <ActivityIndicator style={styles.loading} color={Colors.primary} />
       ) : errorMessage ? (
         <ThemedText style={styles.error}>{errorMessage}</ThemedText>
-      ) : bookings.length === 0 ? (
+      ) : visibleBookings.length === 0 ? (
         <View style={styles.centered}>
           <Ionicons name="document-text-outline" size={40} color={Colors.text} />
-          <ThemedText style={styles.emptyTitle}>No applications yet</ThemedText>
+          <ThemedText style={styles.emptyTitle}>
+            {tab === "active" ? "No active bookings" : "No booking history yet"}
+          </ThemedText>
           <ThemedText style={styles.emptyText}>
-            Browse the catalog and apply for your first visa.
+            {tab === "active"
+              ? "Browse the catalog and apply for your first visa."
+              : "Completed and cancelled bookings will show up here."}
           </ThemedText>
         </View>
       ) : (
@@ -116,7 +169,7 @@ export default function ApplicationsScreen() {
           contentContainerStyle={styles.scrollContent}
           refreshControl={<RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} />}
         >
-          {bookings.map((b) => {
+          {visibleBookings.map((b) => {
             const s = statusStyle(b.booking_status);
             return (
               <Pressable
@@ -141,8 +194,12 @@ export default function ApplicationsScreen() {
                   )}
                   <ThemedText style={styles.cardSub}>
                     {b.currency}
-                    {Number(b.total_amount).toLocaleString()} • {b.number_of_travelers} guest(s) • {b.booking_number}
+                    {Number(b.total_amount).toLocaleString()} • {b.number_of_travelers} guest(s) •{" "}
+                    {b.travel_date && b.travel_date !== "0000-00-00"
+                      ? new Date(b.travel_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                      : "TBD"}
                   </ThemedText>
+                  <ThemedText style={styles.cardBookingNumber}>{b.booking_number}</ThemedText>
                 </View>
                 <View style={[styles.statusPill, { backgroundColor: s.bg }]}>
                   <ThemedText style={[styles.statusText, { color: s.fg }]}>
@@ -163,6 +220,19 @@ const styles = StyleSheet.create({
   headerSafe: { backgroundColor: Colors.white },
   header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: Colors.dark },
+  tabRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingBottom: 16 },
+  tabPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: Colors.background,
+  },
+  tabPillActive: { backgroundColor: Colors.primary },
+  tabPillText: { fontSize: 12.5, fontWeight: "700", color: Colors.dark },
+  tabPillTextActive: { color: Colors.white },
   centered: { flex: 1, alignItems: "center", justifyContent: "center", padding: 32, gap: 12 },
   emptyTitle: { fontSize: 16, fontWeight: "700", color: Colors.dark },
   emptyText: { color: Colors.text, textAlign: "center", lineHeight: 20 },
@@ -204,6 +274,7 @@ const styles = StyleSheet.create({
   cardTitle: { fontSize: 15, fontWeight: "700", color: Colors.dark },
   cardType: { color: Colors.primary, fontSize: 11.5, fontWeight: "600", marginTop: 2 },
   cardSub: { color: Colors.text, fontSize: 12, marginTop: 3 },
+  cardBookingNumber: { color: "#9CA3AF", fontSize: 10.5, marginTop: 2 },
   renewalTag: { backgroundColor: "#FFF3E0", borderRadius: 8, paddingHorizontal: 6, paddingVertical: 2 },
   renewalTagText: { color: Colors.accent, fontSize: 9.5, fontWeight: "700" },
   statusPill: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12 },
