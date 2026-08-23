@@ -127,9 +127,7 @@ export function VisaGate({
           onPress={onChooseForeignInbound}
         >
           <Image
-            source={{
-              uri: "https://images.unsplash.com/photo-1518509562904-e7ef99cddff9?w=600&h=400&fit=crop",
-            }}
+            source={{ uri: "https://flagcdn.com/w640/ph.png" }}
             style={styles.cardImage}
             contentFit="cover"
           />
