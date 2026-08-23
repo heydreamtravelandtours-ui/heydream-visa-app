@@ -10,6 +10,14 @@
 // web gets an actual <input type="date">, created via React.createElement
 // rather than JSX since react-native's JSX namespace doesn't recognize
 // "input" as a valid intrinsic element.
+//
+// Renders a persistent label above the field (matching every other
+// form-group on buttons/visa-book.php: <label>First Name <span
+// class="required">*</span></label>, always visible, separate from the
+// input itself) -- the original version used the field name AS the
+// placeholder, which vanished the moment a date was picked, leaving a bare
+// "05/15/1995" (or the browser's own unlabeled "mm/dd/yyyy" while empty)
+// with nothing to say which date it even was.
 
 import { Colors } from "@/constants/theme";
 import RNDateTimePicker from "@react-native-community/datetimepicker";
@@ -18,7 +26,8 @@ import { Platform, Pressable, StyleSheet, View, ViewStyle } from "react-native";
 import { ThemedText } from "./themed-text";
 
 interface DateFieldProps {
-  placeholder: string;
+  label: string;
+  required?: boolean;
   value: Date | null;
   onChange: (date: Date) => void;
   minimumDate?: Date;
@@ -43,13 +52,17 @@ export function toLocalDateString(d: Date | null | undefined): string | undefine
 
 const toInputValue = toLocalDateString;
 
-export function DateField({ placeholder, value, onChange, minimumDate, maximumDate, style }: DateFieldProps) {
+export function DateField({ label, required, value, onChange, minimumDate, maximumDate, style }: DateFieldProps) {
   const [showPicker, setShowPicker] = useState(false);
 
-  if (Platform.OS === "web") {
-    return (
-      <View style={[styles.webWrap, style]}>
-        {React.createElement("input", {
+  return (
+    <View style={[styles.wrap, style]}>
+      <ThemedText style={styles.label}>
+        {label}
+        {required && <ThemedText style={styles.required}> *</ThemedText>}
+      </ThemedText>
+      {Platform.OS === "web" ? (
+        React.createElement("input", {
           type: "date",
           value: toInputValue(value) || "",
           min: toInputValue(minimumDate),
@@ -59,31 +72,29 @@ export function DateField({ placeholder, value, onChange, minimumDate, maximumDa
             if (v) onChange(new Date(`${v}T00:00:00`));
           },
           style: webInputStyle,
-        })}
-      </View>
-    );
-  }
-
-  return (
-    <>
-      <Pressable style={[styles.input, style]} onPress={() => setShowPicker(true)}>
-        <ThemedText style={value ? undefined : { color: Colors.text }}>
-          {value ? value.toLocaleDateString() : placeholder}
-        </ThemedText>
-      </Pressable>
-      {showPicker && (
-        <RNDateTimePicker
-          value={value ?? minimumDate ?? new Date()}
-          mode="date"
-          minimumDate={minimumDate}
-          maximumDate={maximumDate}
-          onChange={(_, date) => {
-            setShowPicker(Platform.OS === "ios");
-            if (date) onChange(date);
-          }}
-        />
+        })
+      ) : (
+        <>
+          <Pressable style={styles.input} onPress={() => setShowPicker(true)}>
+            <ThemedText style={value ? undefined : { color: Colors.text }}>
+              {value ? value.toLocaleDateString() : "Select date"}
+            </ThemedText>
+          </Pressable>
+          {showPicker && (
+            <RNDateTimePicker
+              value={value ?? minimumDate ?? new Date()}
+              mode="date"
+              minimumDate={minimumDate}
+              maximumDate={maximumDate}
+              onChange={(_, date) => {
+                setShowPicker(Platform.OS === "ios");
+                if (date) onChange(date);
+              }}
+            />
+          )}
+        </>
       )}
-    </>
+    </View>
   );
 }
 
@@ -100,16 +111,17 @@ const webInputStyle: React.CSSProperties = {
 };
 
 const styles = StyleSheet.create({
+  wrap: { marginBottom: 12 },
+  label: { fontSize: 12.5, fontWeight: "700", color: Colors.dark, marginBottom: 6 },
+  required: { color: "#DC2626" },
   input: {
     borderWidth: 1,
     borderColor: "#e2e8f0",
     borderRadius: 12,
     paddingHorizontal: 16,
     paddingVertical: 14,
-    marginBottom: 12,
     fontSize: 15,
     justifyContent: "center",
     color: Colors.dark,
   },
-  webWrap: { marginBottom: 12 },
 });

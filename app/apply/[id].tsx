@@ -12,6 +12,7 @@
 // <input type="file"> + DataTransfer trick.
 
 import { DateField, toLocalDateString } from "@/components/date-field";
+import { LabeledInput } from "@/components/labeled-input";
 import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -31,7 +32,6 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
 
@@ -427,68 +427,70 @@ export default function ApplyScreen() {
                   </Pressable>
                   {a.expanded && (
                     <View style={styles.applicantBody}>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="First Name *"
-                        placeholderTextColor={Colors.text}
+                      <LabeledInput
+                        label="First Name"
+                        required
+                        placeholder="First name"
                         value={a.firstName}
                         onChangeText={(v) => updateApplicant(idx, { firstName: v })}
                       />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Last Name *"
-                        placeholderTextColor={Colors.text}
+                      <LabeledInput
+                        label="Last Name"
+                        required
+                        placeholder="Last name"
                         value={a.lastName}
                         onChangeText={(v) => updateApplicant(idx, { lastName: v })}
                       />
                       <View style={styles.rowFields}>
-                        <TextInput
-                          style={[styles.input, styles.inputHalf]}
-                          placeholder="Middle Name"
-                          placeholderTextColor={Colors.text}
+                        <LabeledInput
+                          label="Middle Name"
+                          placeholder="Middle name"
                           value={a.middleName}
                           onChangeText={(v) => updateApplicant(idx, { middleName: v })}
+                          containerStyle={styles.inputHalf}
                         />
-                        <TextInput
-                          style={[styles.input, styles.inputHalf]}
+                        <LabeledInput
+                          label="Suffix"
                           placeholder="Jr., Sr., III"
-                          placeholderTextColor={Colors.text}
                           value={a.suffix}
                           onChangeText={(v) => updateApplicant(idx, { suffix: v })}
+                          containerStyle={styles.inputHalf}
                         />
                       </View>
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Phone *"
-                        placeholderTextColor={Colors.text}
+                      <LabeledInput
+                        label="Phone"
+                        required
+                        placeholder="+63 912 345 6789"
                         keyboardType="phone-pad"
                         value={a.phone}
                         onChangeText={(v) => updateApplicant(idx, { phone: v })}
                       />
                       <DateField
-                        placeholder="Date of Birth *"
+                        label="Date of Birth"
+                        required
                         value={a.dob}
                         maximumDate={new Date()}
                         onChange={(date) => updateApplicant(idx, { dob: date })}
                       />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Passport Number *"
-                        placeholderTextColor={Colors.text}
+                      <LabeledInput
+                        label="Passport Number"
+                        required
+                        placeholder="Passport number"
                         autoCapitalize="characters"
                         value={a.passportNum}
                         onChangeText={(v) => updateApplicant(idx, { passportNum: v })}
                       />
                       <DateField
-                        placeholder="Passport Expiry *"
+                        label="Passport Expiry"
+                        required
                         value={a.passportExpiry}
                         minimumDate={new Date()}
                         onChange={(date) => updateApplicant(idx, { passportExpiry: date })}
                       />
-                      <TextInput
-                        style={styles.input}
-                        placeholder="Complete Address *"
-                        placeholderTextColor={Colors.text}
+                      <LabeledInput
+                        label="Address"
+                        required
+                        placeholder="Complete address"
                         value={a.address}
                         onChangeText={(v) => updateApplicant(idx, { address: v })}
                       />
@@ -500,52 +502,55 @@ export default function ApplyScreen() {
 
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Trip Info</ThemedText>
-              <TextInput
-                style={styles.input}
-                placeholder="Your Email Address"
-                placeholderTextColor={Colors.text}
+              <LabeledInput
+                label="Email Address"
+                required
+                placeholder="Your email address"
                 keyboardType="email-address"
                 autoCapitalize="none"
                 value={email}
                 onChangeText={setEmail}
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Destination (Country name)"
-                placeholderTextColor={Colors.text}
+              <LabeledInput
+                label="Destination"
+                required
+                placeholder="Country name"
                 value={destination}
                 onChangeText={setDestination}
               />
-              <View style={styles.embassyRow}>
-                {EMBASSIES.map((e) => (
-                  <Pressable
-                    key={e.value}
-                    style={[styles.embassyPill, embassy === e.value && styles.embassyPillSelected]}
-                    onPress={() => setEmbassy(e.value)}
-                  >
-                    <ThemedText style={embassy === e.value ? styles.embassyTextSelected : undefined}>
-                      {e.label}
-                    </ThemedText>
-                  </Pressable>
-                ))}
+              <View style={styles.fieldWrap}>
+                <ThemedText style={styles.fieldLabel}>Embassy/Consulate</ThemedText>
+                <View style={styles.embassyRow}>
+                  {EMBASSIES.map((e) => (
+                    <Pressable
+                      key={e.value}
+                      style={[styles.embassyPill, embassy === e.value && styles.embassyPillSelected]}
+                      onPress={() => setEmbassy(e.value)}
+                    >
+                      <ThemedText style={embassy === e.value ? styles.embassyTextSelected : undefined}>
+                        {e.label}
+                      </ThemedText>
+                    </Pressable>
+                  ))}
+                </View>
               </View>
               <DateField
-                placeholder="Target Travel Date *"
+                label="Target Travel Date"
+                required
                 value={travelDate}
                 minimumDate={new Date()}
                 onChange={setTravelDate}
               />
-              <TextInput
-                style={styles.input}
-                placeholder="Occupation"
-                placeholderTextColor={Colors.text}
+              <LabeledInput
+                label="Occupation"
+                placeholder="Your job title"
                 value={occupation}
                 onChangeText={setOccupation}
               />
-              <TextInput
-                style={[styles.input, styles.multiline]}
-                placeholder="Travel History (previous countries visited)"
-                placeholderTextColor={Colors.text}
+              <LabeledInput
+                label="Travel History"
+                placeholder="Countries visited in last 5 years"
+                style={styles.multiline}
                 multiline
                 value={travelHistory}
                 onChangeText={setTravelHistory}
@@ -815,17 +820,8 @@ const styles = StyleSheet.create({
   },
   applicantHeaderText: { flex: 1, fontWeight: "700", color: Colors.primary, fontSize: 13.5 },
   applicantBody: { padding: 14, backgroundColor: Colors.white },
-  input: {
-    borderWidth: 1,
-    borderColor: "#e2e8f0",
-    borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    marginBottom: 12,
-    fontSize: 15,
-    justifyContent: "center",
-    color: Colors.dark,
-  },
+  fieldWrap: { marginBottom: 12 },
+  fieldLabel: { fontSize: 12.5, fontWeight: "700", color: Colors.dark, marginBottom: 6 },
   rowFields: { flexDirection: "row", gap: 10 },
   inputHalf: { flex: 1 },
   multiline: { minHeight: 80, textAlignVertical: "top" },
@@ -856,7 +852,7 @@ const styles = StyleSheet.create({
   optionRowSelected: { borderColor: Colors.primary, backgroundColor: "#E8F0FE" },
   optionPrice: { color: Colors.primary, fontWeight: "800" },
   optionTime: { color: Colors.text, fontSize: 12, marginTop: 2 },
-  embassyRow: { flexDirection: "row", gap: 8, marginBottom: 12 },
+  embassyRow: { flexDirection: "row", gap: 8 },
   embassyPill: {
     borderWidth: 1,
     borderColor: "#e2e8f0",
