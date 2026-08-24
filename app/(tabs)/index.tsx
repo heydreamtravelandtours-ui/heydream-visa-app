@@ -25,7 +25,7 @@ import {
   TextInput,
   View,
 } from "react-native";
-import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 interface Visa {
   id: number;
@@ -64,19 +64,6 @@ export default function HomeScreen() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const { unreadCount } = useUnreadCount();
-  // Fixed at 240 regardless of device used to eat over a third of an iPhone
-  // SE's screen (667pt tall) before any visa card was visible. A first pass
-  // at shrinking this scaled off raw window height, which doesn't track the
-  // actual constraint -- the safe-area top inset (status bar / notch) plus
-  // the header row, gate-switch pill, and search bar are all fixed-height
-  // flow/absolute content stacked inside this container, and on a device
-  // with a larger inset than assumed, that content collided with the
-  // search bar instead of just being close to it. Basing this on the real
-  // inset directly (top row ~44 + gate pill block ~64 + search bar's own
-  // reserved space ~62, plus a buffer) guarantees enough room on every
-  // device instead of guessing from total screen height.
-  const insets = useSafeAreaInsets();
-  const heroHeight = Math.min(250, Math.max(200, insets.top + 190));
 
   const load = useCallback(async () => {
     const result = await api.getVisaList(direction);
@@ -126,7 +113,7 @@ export default function HomeScreen() {
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={[styles.hero, { height: heroHeight }]}>
+      <View style={styles.hero}>
         <Image
           source={{
             uri: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=900&h=600&fit=crop",
@@ -167,17 +154,27 @@ export default function HomeScreen() {
               : "Applying as a foreign visitor instead?"}
           </ThemedText>
         </Pressable>
+      </View>
 
-        <View style={styles.searchWrap}>
-          <Ionicons name="search" size={18} color={Colors.accent} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search a country or region..."
-            placeholderTextColor="#999"
-            value={query}
-            onChangeText={setQuery}
-          />
-        </View>
+      {/* Sibling of hero, not a child positioned by a guessed inset/height --
+          hero used to be forced to a hand-picked pixel height so this could
+          float inside it at a fixed bottom offset, and on any device where
+          the real safe-area inset or header content ran taller than assumed,
+          it collided with the gate-switch pill above it instead of just
+          floating below it. Hero now sizes itself to its own content
+          (header row + gate pill), and this negative-margin overlap can't
+          collide with anything above it regardless of device, since it
+          always renders after -- and therefore below -- whatever hero
+          actually ended up being. */}
+      <View style={styles.searchWrap}>
+        <Ionicons name="search" size={18} color={Colors.accent} />
+        <TextInput
+          style={styles.searchInput}
+          placeholder="Search a country or region..."
+          placeholderTextColor="#999"
+          value={query}
+          onChangeText={setQuery}
+        />
       </View>
 
       {isLoading ? (
@@ -304,7 +301,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 9,
     marginTop: 14,
-    marginBottom: 16,
+    marginBottom: 20,
     marginLeft: 20,
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 4 },
@@ -315,10 +312,9 @@ const styles = StyleSheet.create({
   gateSwitchPillPressed: { opacity: 0.85, transform: [{ translateY: -1 }] },
   gateSwitchPillText: { color: "#6C5CE7", fontSize: 12.5, fontWeight: "700" },
   searchWrap: {
-    position: "absolute",
-    left: 20,
-    right: 20,
-    bottom: 20,
+    marginTop: -26,
+    marginHorizontal: 20,
+    marginBottom: 16,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.white,

@@ -591,7 +591,7 @@ export default function ApplicationDetailScreen() {
         )}
 
         <View style={styles.section}>
-          <ThemedText style={styles.sectionTitle}>Questions About This Booking?</ThemedText>
+          <ThemedText style={[styles.sectionTitle, { marginBottom: 12 }]}>Questions About This Booking?</ThemedText>
           <ThemedText style={styles.helperText}>
             This trip is handled directly by HeyDream Travel and Tours.
           </ThemedText>
@@ -659,7 +659,13 @@ const styles = StyleSheet.create({
   notesSection: { backgroundColor: "#FFF8E1" },
   cardTitleRow: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 8 },
   notesText: { color: Colors.dark, lineHeight: 20, fontSize: 13 },
-  sectionTitle: { marginBottom: 12, fontSize: 17, fontWeight: "800", color: Colors.dark },
+  // No marginBottom here -- every use except "Questions About This Booking?"
+  // pairs this with an icon inside cardTitleRow (which already has its own
+  // marginBottom for spacing below the row). A margin on the text itself
+  // grew its flex item taller than the icon's, so cardTitleRow's
+  // alignItems:"center" centered the icon against that inflated box instead
+  // of the actual text, throwing the icon visibly below the text baseline.
+  sectionTitle: { fontSize: 17, fontWeight: "800", color: Colors.dark },
   row: {
     flexDirection: "row",
     justifyContent: "space-between",
