@@ -167,7 +167,7 @@ export default function HomeScreen() {
           always renders after -- and therefore below -- whatever hero
           actually ended up being. */}
       <View style={styles.searchWrap}>
-        <Ionicons name="search" size={18} color={Colors.accent} />
+        <Ionicons name="search" size={15} color={Colors.accent} />
         <TextInput
           style={styles.searchInput}
           placeholder="Search a country or region..."
@@ -314,23 +314,23 @@ const styles = StyleSheet.create({
   gateSwitchPillPressed: { opacity: 0.7 },
   gateSwitchPillText: { color: Colors.white, fontSize: 11.5, fontWeight: "600" },
   searchWrap: {
-    marginTop: -26,
+    marginTop: -18,
     marginHorizontal: 20,
     marginBottom: 16,
     flexDirection: "row",
     alignItems: "center",
     backgroundColor: Colors.white,
-    borderRadius: 30,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 10,
+    borderRadius: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    gap: 8,
     shadowColor: Colors.black,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 3,
   },
-  searchInput: { flex: 1, fontSize: 14, color: Colors.dark },
+  searchInput: { flex: 1, fontSize: 13, color: Colors.dark },
   loading: { marginTop: 60 },
   error: { color: "#B00020", textAlign: "center", marginTop: 40, paddingHorizontal: 24 },
   empty: { color: Colors.text, textAlign: "center", marginTop: 20, paddingHorizontal: 24 },
