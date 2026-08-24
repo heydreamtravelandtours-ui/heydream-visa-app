@@ -95,7 +95,10 @@ function emptyApplicant(): ApplicantDraft {
 }
 
 function formatApplicantName(a: ApplicantDraft) {
-  return [a.firstName, a.middleName, a.lastName, a.suffix].filter(Boolean).join(" ").trim();
+  return [a.firstName, a.middleName, a.lastName, a.suffix]
+    .map((s) => (s || "").trim())
+    .filter(Boolean)
+    .join(" ");
 }
 
 export default function ApplyScreen() {
@@ -531,6 +534,8 @@ export default function ApplyScreen() {
                 placeholder="Country name"
                 value={destination}
                 onChangeText={setDestination}
+                editable={direction !== "inbound"}
+                style={direction === "inbound" ? styles.inputLocked : undefined}
               />
               {direction === "inbound" ? (
                 // A foreign applicant entering the Philippines wouldn't pick
@@ -950,6 +955,7 @@ const styles = StyleSheet.create({
     elevation: 4,
   },
   nextButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 15 },
+  inputLocked: { backgroundColor: "#f0f2f5", color: "#666" },
   submitButton: {
     flexDirection: "row",
     justifyContent: "center",

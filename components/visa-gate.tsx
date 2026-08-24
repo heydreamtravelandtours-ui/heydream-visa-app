@@ -102,7 +102,7 @@ export function VisaGate({
           onPress={onChoosePhOutbound}
         >
           <Image
-            source={{ uri: "https://flagcdn.com/w320/ph.png" }}
+            source={{ uri: "https://heydreamtravel.com/images/globe-hero.png" }}
             style={styles.cardImage}
             contentFit="cover"
           />
@@ -127,7 +127,7 @@ export function VisaGate({
           onPress={onChooseForeignInbound}
         >
           <Image
-            source={{ uri: "https://flagcdn.com/w640/ph.png" }}
+            source={{ uri: "https://heydreamtravel.com/images/philippines-samal-island-resort-beach-aerial.jpg" }}
             style={styles.cardImage}
             contentFit="cover"
           />

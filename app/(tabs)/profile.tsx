@@ -1,13 +1,17 @@
 // app/(tabs)/profile.tsx
 
+import { HeaderActions } from "@/components/header-actions";
 import { ThemedText } from "@/components/themed-text";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
+import { useUnreadCount } from "@/hooks/use-unread-count";
 import { showConfirm } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Linking, Pressable, StyleSheet, View } from "react-native";
+import * as WebBrowser from "expo-web-browser";
+import { Pressable, StyleSheet, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
+import { API_BASE_URL } from "@/api/config";
 
 function initials(name: string) {
   return name
@@ -22,6 +26,7 @@ function initials(name: string) {
 export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
+  const { unreadCount } = useUnreadCount();
 
   const handleLogout = () => {
     showConfirm("Log Out", "Are you sure you want to log out?", [
@@ -33,6 +38,7 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView edges={["top"]} style={styles.hero}>
+        {user && <HeaderActions unreadCount={unreadCount} showProfile={false} style={styles.heroActions} />}
         {user ? (
           <>
             <View style={styles.avatar}>
@@ -68,18 +74,31 @@ export default function ProfileScreen() {
           </>
         )}
         {user && (
-          <MenuRow
-            icon="document-text-outline"
-            label="My Applications"
-            onPress={() => router.push("/(tabs)/applications")}
-          />
+          <>
+            <MenuRow
+              icon="document-text-outline"
+              label="My Applications"
+              onPress={() => router.push("/(tabs)/applications")}
+            />
+            <MenuRow
+              icon="create-outline"
+              label="Edit Profile"
+              onPress={() => router.push("/edit-profile")}
+            />
+            <MenuRow
+              icon="lock-closed-outline"
+              label="Change Password"
+              onPress={() => router.push("/change-password")}
+            />
+          </>
         )}
+        <MenuRow icon="mail-outline" label="Contact Support" onPress={() => router.push("/support")} />
+        <MenuRow icon="information-circle-outline" label="About Us" onPress={() => router.push("/about")} />
+        <MenuRow icon="share-social-outline" label="Social Media" onPress={() => router.push("/social")} />
         <MenuRow
-          icon="mail-outline"
-          label="Contact Support"
-          onPress={() =>
-            Linking.openURL("mailto:heydreamtravelandtours@gmail.com?subject=Visa%20App%20Support")
-          }
+          icon="reader-outline"
+          label="Terms of Service"
+          onPress={() => WebBrowser.openBrowserAsync(`${API_BASE_URL}/visa/terms.php`)}
         />
         {user && (
           <MenuRow icon="log-out-outline" label="Log Out" onPress={handleLogout} destructive />
@@ -123,6 +142,7 @@ const styles = StyleSheet.create({
     borderBottomLeftRadius: 28,
     borderBottomRightRadius: 28,
   },
+  heroActions: { position: "absolute", top: 12, right: 20, zIndex: 1 },
   avatar: {
     width: 72,
     height: 72,

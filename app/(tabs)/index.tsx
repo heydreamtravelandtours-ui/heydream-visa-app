@@ -8,6 +8,7 @@ import { ThemedText } from "@/components/themed-text";
 import { useGateChoice } from "@/components/visa-gate";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
+import { useUnreadCount } from "@/hooks/use-unread-count";
 import * as api from "@/api/client";
 import { Ionicons } from "@expo/vector-icons";
 import { Image } from "expo-image";
@@ -61,17 +62,7 @@ export default function HomeScreen() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
-  const [unreadCount, setUnreadCount] = useState(0);
-
-  useEffect(() => {
-    if (!user) {
-      setUnreadCount(0);
-      return;
-    }
-    api.getNotifications().then((result) => {
-      if (result.success) setUnreadCount(result.unread_count || 0);
-    });
-  }, [user]);
+  const { unreadCount } = useUnreadCount();
 
   const load = useCallback(async () => {
     const result = await api.getVisaList(direction);

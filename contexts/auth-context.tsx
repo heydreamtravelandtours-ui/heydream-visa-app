@@ -17,6 +17,10 @@ export interface VisaUser {
   id: number | string;
   full_name: string;
   email: string;
+  title?: string;
+  dob?: string;
+  country?: string;
+  phone?: string;
 }
 
 interface AuthContextType {
@@ -31,6 +35,7 @@ interface AuthContextType {
     phone?: string
   ) => Promise<{ success: boolean; message?: string }>;
   logout: () => Promise<void>;
+  updateUser: (patch: Partial<VisaUser>) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -99,8 +104,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setUser(null);
   };
 
+  const updateUser = async (patch: Partial<VisaUser>) => {
+    setUser((prev) => {
+      if (!prev) return prev;
+      const next = { ...prev, ...patch };
+      secureStorage.setItem(USER_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
   return (
-    <AuthContext.Provider value={{ user, isLoading, login, loginWithGoogle, register, logout }}>
+    <AuthContext.Provider
+      value={{ user, isLoading, login, loginWithGoogle, register, logout, updateUser }}
+    >
       {children}
     </AuthContext.Provider>
   );

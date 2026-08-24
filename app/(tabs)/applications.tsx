@@ -2,9 +2,11 @@
 // "My Applications" tab -- status-colored badges, card list matching the
 // rest of the app's rounded/shadowed card language.
 
+import { HeaderActions } from "@/components/header-actions";
 import { ThemedText } from "@/components/themed-text";
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
+import { useUnreadCount } from "@/hooks/use-unread-count";
 import * as api from "@/api/client";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
@@ -63,6 +65,7 @@ export default function ApplicationsScreen() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("active");
+  const { unreadCount } = useUnreadCount();
 
   const load = useCallback(async () => {
     if (!user) {
@@ -107,6 +110,7 @@ export default function ApplicationsScreen() {
       <SafeAreaView edges={["top"]} style={styles.headerSafe}>
         <View style={styles.header}>
           <ThemedText style={styles.headerTitle}>My Applications</ThemedText>
+          <HeaderActions unreadCount={unreadCount} />
         </View>
         {user && (
           <View style={styles.tabRow}>
@@ -218,7 +222,14 @@ export default function ApplicationsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   headerSafe: { backgroundColor: Colors.white },
-  header: { paddingHorizontal: 20, paddingTop: 8, paddingBottom: 16 },
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 16,
+  },
   headerTitle: { fontSize: 24, fontWeight: "800", color: Colors.dark },
   tabRow: { flexDirection: "row", gap: 10, paddingHorizontal: 20, paddingBottom: 16 },
   tabPill: {

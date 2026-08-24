@@ -65,4 +65,8 @@ export const API_ENDPOINTS = {
   NOTIFICATIONS: `${API_BASE_URL}/visa/api/notifications-api.php`,
   BOOKING_COUNT: `${API_BASE_URL}/visa/api/get-booking-count.php`,
   BOOKING_CHAT: `${API_BASE_URL}/visa/api/booking-chat.php`,
+  GET_PROFILE: `${API_BASE_URL}/visa/api/get-profile.php`,
+  UPDATE_PROFILE: `${API_BASE_URL}/visa/api/update-profile.php`,
+  CHANGE_PASSWORD: `${API_BASE_URL}/visa/api/change-password.php`,
+  SUBMIT_REPORT: `${API_BASE_URL}/visa/api/submit-report.php`,
 } as const;

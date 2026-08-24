@@ -197,3 +197,29 @@ export function sendBookingChatMessage(bookingNumber: string, message: string) {
   form.append("message", message);
   return apiPostForm(API_ENDPOINTS.BOOKING_CHAT, form);
 }
+
+export function getProfile() {
+  return apiGet(API_ENDPOINTS.GET_PROFILE);
+}
+
+export function updateProfile(payload: {
+  title: string;
+  full_name: string;
+  dob: string;
+  country: string;
+  phone: string;
+}) {
+  return apiPostJson(API_ENDPOINTS.UPDATE_PROFILE, payload);
+}
+
+export function changePassword(currentPassword: string, newPassword: string, confirmPassword: string) {
+  return apiPostJson(API_ENDPOINTS.CHANGE_PASSWORD, {
+    current_password: currentPassword,
+    new_password: newPassword,
+    confirm_password: confirmPassword,
+  });
+}
+
+export function submitReport(form: FormData) {
+  return apiPostForm(API_ENDPOINTS.SUBMIT_REPORT, form);
+}

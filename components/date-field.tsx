@@ -76,7 +76,7 @@ export function DateField({ label, required, value, onChange, minimumDate, maxim
       ) : (
         <>
           <Pressable style={styles.input} onPress={() => setShowPicker(true)}>
-            <ThemedText style={value ? undefined : { color: Colors.text }}>
+            <ThemedText style={{ color: value ? Colors.dark : Colors.text }}>
               {value ? value.toLocaleDateString() : "Select date"}
             </ThemedText>
           </Pressable>
@@ -123,5 +123,6 @@ const styles = StyleSheet.create({
     fontSize: 15,
     justifyContent: "center",
     color: Colors.dark,
+    backgroundColor: Colors.white,
   },
 });

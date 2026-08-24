@@ -17,6 +17,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface ProcessingOption {
   id: number;
@@ -63,6 +64,7 @@ export default function VisaDetailsScreen() {
   const direction = directionParam === "inbound" ? "inbound" : "outbound";
   const router = useRouter();
   const { user } = useAuth();
+  const insets = useSafeAreaInsets();
   const [visa, setVisa] = useState<VisaDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -279,7 +281,7 @@ export default function VisaDetailsScreen() {
         )}
       </ScrollView>
 
-      <View style={styles.footer}>
+      <View style={[styles.footer, { paddingBottom: 18 + insets.bottom }]}>
         <ThemedText style={styles.footerPrice}>{formatPrice(visa)}</ThemedText>
         <ThemedText style={styles.footerPriceCaption}>
           per applicant -- exact fee depends on the type/tier you pick

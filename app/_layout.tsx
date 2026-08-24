@@ -42,6 +42,11 @@ function GatedApp() {
         <Stack.Screen name="chat/[bookingNumber]" />
         <Stack.Screen name="notifications" />
         <Stack.Screen name="oauthredirect" />
+        <Stack.Screen name="edit-profile" />
+        <Stack.Screen name="change-password" />
+        <Stack.Screen name="support" />
+        <Stack.Screen name="about" />
+        <Stack.Screen name="social" />
       </Stack>
       {choice !== "ph_outbound" && choice !== "foreign_inbound" && (
         // Overlays the Stack instead of replacing it -- mirrors
