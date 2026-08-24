@@ -48,6 +48,7 @@ function GatedApp() {
         <Stack.Screen name="support" />
         <Stack.Screen name="about" />
         <Stack.Screen name="social" />
+        <Stack.Screen name="terms" />
       </Stack>
       {choice !== "ph_outbound" && choice !== "foreign_inbound" && (
         // Overlays the Stack instead of replacing it -- mirrors

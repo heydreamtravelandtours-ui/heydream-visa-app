@@ -24,7 +24,12 @@ export function LabeledInput({ label, required, containerStyle, style, ...rest }
         {label}
         {required && <ThemedText style={styles.required}> *</ThemedText>}
       </ThemedText>
-      <TextInput style={[styles.input, style]} placeholderTextColor={Colors.text} {...rest} />
+      <TextInput
+        style={[styles.input, rest.multiline && styles.inputMultiline, style]}
+        placeholderTextColor={Colors.text}
+        textAlignVertical={rest.multiline ? "top" : "center"}
+        {...rest}
+      />
     </View>
   );
 }
@@ -42,4 +47,5 @@ const styles = StyleSheet.create({
     fontSize: 15,
     color: Colors.dark,
   },
+  inputMultiline: { minHeight: 84, paddingTop: 14 },
 });

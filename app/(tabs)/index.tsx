@@ -23,6 +23,7 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -64,6 +65,12 @@ export default function HomeScreen() {
   const [query, setQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const { unreadCount } = useUnreadCount();
+  // Fixed at 240 regardless of device used to eat over a third of an iPhone
+  // SE's screen (667pt tall) before any visa card was visible. Scaling with
+  // window height keeps roughly the same proportion on tall phones while
+  // shrinking it on short ones, clamped so it never gets cramped or huge.
+  const { height: windowHeight } = useWindowDimensions();
+  const heroHeight = Math.min(240, Math.max(190, windowHeight * 0.28));
 
   const load = useCallback(async () => {
     const result = await api.getVisaList(direction);
@@ -100,14 +107,20 @@ export default function HomeScreen() {
     .filter((g) => !activeCategory || g.category === activeCategory)
     .map((g) => ({
       ...g,
-      visas: g.visas.filter((v) => !q || v.title.toLowerCase().includes(q)),
+      visas: g.visas.filter(
+        (v) =>
+          !q ||
+          v.title.toLowerCase().includes(q) ||
+          v.category.toLowerCase().includes(q) ||
+          v.description.toLowerCase().includes(q)
+      ),
     }))
     .filter((g) => g.visas.length > 0);
 
   return (
     <View style={styles.container}>
       <StatusBar style="light" />
-      <View style={styles.hero}>
+      <View style={[styles.hero, { height: heroHeight }]}>
         <Image
           source={{
             uri: "https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=900&h=600&fit=crop",
@@ -153,7 +166,7 @@ export default function HomeScreen() {
           <Ionicons name="search" size={18} color={Colors.accent} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search a country or visa type..."
+            placeholder="Search a country or region..."
             placeholderTextColor="#999"
             value={query}
             onChangeText={setQuery}
@@ -252,7 +265,7 @@ export default function HomeScreen() {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
-  hero: { height: 240, overflow: "hidden" },
+  hero: { overflow: "hidden" },
   heroOverlay: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(13,71,161,0.55)" },
   heroTopRow: {
     flexDirection: "row",

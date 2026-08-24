@@ -8,11 +8,9 @@ import { useUnreadCount } from "@/hooks/use-unread-count";
 import { showConfirm } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
-import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { VISA_WEB_BASE_URL } from "@/api/config";
 import * as api from "@/api/client";
 
 function initials(name: string) {
@@ -117,7 +115,7 @@ export default function ProfileScreen() {
         <MenuRow
           icon="reader-outline"
           label="Terms of Service"
-          onPress={() => WebBrowser.openBrowserAsync(`${VISA_WEB_BASE_URL}/terms.php`)}
+          onPress={() => router.push("/terms")}
         />
         {user && (
           <MenuRow icon="log-out-outline" label="Log Out" onPress={handleLogout} destructive />

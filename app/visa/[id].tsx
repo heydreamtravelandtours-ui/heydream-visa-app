@@ -286,16 +286,18 @@ export default function VisaDetailsScreen() {
         <ThemedText style={styles.footerPriceCaption}>
           per applicant -- exact fee depends on the type/tier you pick
         </ThemedText>
-        <Pressable style={styles.applyButton} onPress={() => handleApply(false)}>
-          <Ionicons name="flash" size={16} color={Colors.primary} />
-          <ThemedText style={styles.applyButtonText}>Apply Now</ThemedText>
-        </Pressable>
-        {!!visa.supports_renewal && (
-          <Pressable style={styles.renewButton} onPress={() => handleApply(true)}>
-            <Ionicons name="sync" size={16} color={Colors.primary} />
-            <ThemedText style={styles.renewButtonText}>Renew Visa</ThemedText>
+        <View style={styles.footerButtonRow}>
+          <Pressable style={[styles.applyButton, styles.footerButtonHalf]} onPress={() => handleApply(false)}>
+            <Ionicons name="flash" size={15} color={Colors.primary} />
+            <ThemedText style={styles.applyButtonText}>Apply Now</ThemedText>
           </Pressable>
-        )}
+          {!!visa.supports_renewal && (
+            <Pressable style={[styles.renewButton, styles.footerButtonHalf]} onPress={() => handleApply(true)}>
+              <Ionicons name="sync" size={15} color={Colors.primary} />
+              <ThemedText style={styles.renewButtonText}>Renew Visa</ThemedText>
+            </Pressable>
+          )}
+        </View>
       </View>
     </View>
   );
@@ -390,31 +392,32 @@ const styles = StyleSheet.create({
   },
   footerPrice: { color: Colors.gold === "#FFD700" ? "#B8860B" : Colors.gold, fontSize: 20, fontWeight: "900" },
   footerPriceCaption: { color: Colors.text, fontSize: 11.5, marginTop: 2, marginBottom: 10 },
+  footerButtonRow: { flexDirection: "row", gap: 10 },
+  footerButtonHalf: { flex: 1 },
   applyButton: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
     backgroundColor: Colors.gold,
-    borderRadius: 14,
-    paddingVertical: 15,
+    borderRadius: 12,
+    paddingVertical: 11,
     alignItems: "center",
     justifyContent: "center",
     shadowColor: Colors.gold,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+    elevation: 2,
   },
-  applyButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 15 },
+  applyButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 14 },
   renewButton: {
     flexDirection: "row",
-    gap: 8,
+    gap: 6,
     borderWidth: 1.5,
     borderColor: Colors.primary,
-    borderRadius: 14,
-    paddingVertical: 13,
+    borderRadius: 12,
+    paddingVertical: 9.5,
     alignItems: "center",
     justifyContent: "center",
-    marginTop: 10,
     backgroundColor: Colors.white,
   },
   renewButtonText: { color: Colors.primary, fontWeight: "800", fontSize: 14 },

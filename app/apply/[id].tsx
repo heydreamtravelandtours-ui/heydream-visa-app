@@ -1,13 +1,17 @@
 // app/apply/[id].tsx
-// Mirrors buttons/visa-book.php's real 4-step wizard (Details -> Documents
-// -> Review -> Confirmation, js/visa-booking.js) instead of the single flat
-// form this screen used to be -- that version hardcoded exactly one
-// applicant and had no review/confirmation step at all. Adapted for mobile
-// as one screen with internal step state (a horizontal stepper bar) rather
-// than the site's four separate DOM containers, since that's the native
-// pattern for a paginated form on a phone. Document files are staged
-// locally per applicant+requirement and only actually uploaded after the
-// booking is created -- same sequencing submitVisaApplication() /
+// Mirrors js/visa-booking.js's real 5-step wizard (Trip Info -> Applicants
+// -> Documents -> Review -> Confirmation) instead of the single flat form
+// this screen used to be -- that version hardcoded exactly one applicant and
+// had no review/confirmation step at all. Trip Info and Applicants used to
+// be one combined "Details" step (visa type/processing/applicant cards/trip
+// fields all in one long scroll); split the same way the website's wizard
+// was, since Travel History and everything else applicants fill in needs
+// its own step rather than being buried under trip-level fields. Adapted
+// for mobile as one screen with internal step state (a horizontal stepper
+// bar) rather than the site's five separate DOM containers, since that's
+// the native pattern for a paginated form on a phone. Document files are
+// staged locally per applicant+requirement and only actually uploaded after
+// the booking is created -- same sequencing submitVisaApplication() /
 // uploadVisaDocuments() use, just held in React state instead of a
 // <input type="file"> + DataTransfer trick.
 
@@ -80,7 +84,7 @@ const EMBASSIES = [
   { value: "davao", label: "Davao" },
 ];
 
-const STEPS = ["Details", "Documents", "Review", "Confirmation"] as const;
+const STEPS = ["Trip Info", "Applicants", "Documents", "Review", "Confirmation"] as const;
 
 function emptyApplicant(): ApplicantDraft {
   return {
@@ -115,7 +119,7 @@ export default function ApplyScreen() {
 
   const [visa, setVisa] = useState<VisaDetails | null>(null);
   const [isLoadingVisa, setIsLoadingVisa] = useState(true);
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [step, setStep] = useState<1 | 2 | 3 | 4 | 5>(1);
 
   const [selectedType, setSelectedType] = useState<string | null>(null);
   const [selectedOption, setSelectedOption] = useState<ProcessingOption | null>(null);
@@ -218,6 +222,10 @@ export default function ApplyScreen() {
       showAlert("Missing info", "Choose your target travel date.");
       return false;
     }
+    return true;
+  };
+
+  const validateStep2 = () => {
     for (let i = 0; i < applicants.length; i++) {
       const a = applicants[i];
       if (!a.firstName.trim() || !a.lastName.trim() || !a.phone.trim() || !a.dob || !a.passportNum.trim() || !a.passportExpiry || !a.address.trim()) {
@@ -326,7 +334,7 @@ export default function ApplyScreen() {
 
     setIsSubmitting(false);
     setResultBookingNumber(bookingNumber);
-    setStep(4);
+    setStep(5);
   };
 
   if (isLoadingVisa) {
@@ -344,9 +352,9 @@ export default function ApplyScreen() {
       <StatusBar style="light" />
       <ScreenHeader title={`${isRenewal ? "Renew" : "Apply for"} ${visa?.title ?? ""}`} />
 
-      {step < 4 && (
+      {step < 5 && (
         <View style={styles.stepper}>
-          {STEPS.slice(0, 3).map((label, idx) => {
+          {STEPS.slice(0, 4).map((label, idx) => {
             const n = idx + 1;
             const isDone = n < step;
             const isActive = n === step;
@@ -360,7 +368,7 @@ export default function ApplyScreen() {
                       <ThemedText style={[styles.stepDotText, isActive && styles.stepDotTextActive]}>{n}</ThemedText>
                     )}
                   </View>
-                  {idx < 2 && <View style={[styles.stepLine, isDone && styles.stepLineDone]} />}
+                  {idx < 3 && <View style={[styles.stepLine, isDone && styles.stepLineDone]} />}
                 </View>
                 <ThemedText style={[styles.stepLabel, isActive && styles.stepLabelActive]}>{label}</ThemedText>
               </View>
@@ -424,6 +432,79 @@ export default function ApplyScreen() {
               </View>
             )}
 
+            <View style={styles.section}>
+              <ThemedText style={styles.sectionTitle}>Trip Info</ThemedText>
+              <LabeledInput
+                label="Email Address"
+                required
+                placeholder="Your email address"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                value={email}
+                onChangeText={setEmail}
+              />
+              <LabeledInput
+                label={direction === "inbound" ? "Your Home Country" : "Destination"}
+                required
+                placeholder="Country name"
+                value={destination}
+                onChangeText={setDestination}
+                editable={direction !== "inbound"}
+                style={direction === "inbound" ? styles.inputLocked : undefined}
+              />
+              {direction === "inbound" ? (
+                // A foreign applicant entering the Philippines wouldn't pick
+                // from a fixed list of PH cities (that's outbound-only --
+                // where a Filipino goes to apply for a FOREIGN visa) -- free
+                // text instead, since HeyDream can't maintain a dropdown of
+                // every country's PH embassy.
+                <LabeledInput
+                  label="PH Embassy/Consulate Used"
+                  placeholder="e.g. Philippine Embassy in your country (if applicable)"
+                  value={embassy}
+                  onChangeText={setEmbassy}
+                />
+              ) : (
+                <View style={styles.fieldWrap}>
+                  <ThemedText style={styles.fieldLabel}>Embassy/Consulate</ThemedText>
+                  <View style={styles.embassyRow}>
+                    {EMBASSIES.map((e) => (
+                      <Pressable
+                        key={e.value}
+                        style={[styles.embassyPill, embassy === e.value && styles.embassyPillSelected]}
+                        onPress={() => setEmbassy(e.value)}
+                      >
+                        <ThemedText style={embassy === e.value ? styles.embassyTextSelected : undefined}>
+                          {e.label}
+                        </ThemedText>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+              )}
+              <DateField
+                label="Target Travel Date"
+                required
+                value={travelDate}
+                minimumDate={new Date()}
+                onChange={setTravelDate}
+              />
+            </View>
+
+            <Pressable
+              style={styles.nextButton}
+              onPress={() => {
+                if (validateStep1()) setStep(2);
+              }}
+            >
+              <ThemedText style={styles.nextButtonText}>Continue to Applicants</ThemedText>
+              <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
+            </Pressable>
+          </>
+        )}
+
+        {step === 2 && (
+          <>
             <View style={styles.section}>
               <View style={styles.sectionTitleRow}>
                 <ThemedText style={styles.sectionTitle}>
@@ -525,100 +606,45 @@ export default function ApplyScreen() {
                         value={a.address}
                         onChangeText={(v) => updateApplicant(idx, { address: v })}
                       />
-                      <View style={styles.rowFields}>
-                        <LabeledInput
-                          label="Occupation"
-                          placeholder="Job title"
-                          value={a.occupation}
-                          onChangeText={(v) => updateApplicant(idx, { occupation: v })}
-                          containerStyle={styles.inputHalf}
-                        />
-                        <LabeledInput
-                          label="Travel History"
-                          placeholder="Countries visited"
-                          value={a.travelHistory}
-                          onChangeText={(v) => updateApplicant(idx, { travelHistory: v })}
-                          containerStyle={styles.inputHalf}
-                        />
-                      </View>
+                      <LabeledInput
+                        label="Occupation"
+                        placeholder="Job title"
+                        value={a.occupation}
+                        onChangeText={(v) => updateApplicant(idx, { occupation: v })}
+                      />
+                      <LabeledInput
+                        label="Travel History"
+                        placeholder="Countries visited in the last 5 years"
+                        value={a.travelHistory}
+                        onChangeText={(v) => updateApplicant(idx, { travelHistory: v })}
+                        multiline
+                        numberOfLines={3}
+                      />
                     </View>
                   )}
                 </View>
               ))}
             </View>
 
-            <View style={styles.section}>
-              <ThemedText style={styles.sectionTitle}>Trip Info</ThemedText>
-              <LabeledInput
-                label="Email Address"
-                required
-                placeholder="Your email address"
-                keyboardType="email-address"
-                autoCapitalize="none"
-                value={email}
-                onChangeText={setEmail}
-              />
-              <LabeledInput
-                label={direction === "inbound" ? "Your Home Country" : "Destination"}
-                required
-                placeholder="Country name"
-                value={destination}
-                onChangeText={setDestination}
-                editable={direction !== "inbound"}
-                style={direction === "inbound" ? styles.inputLocked : undefined}
-              />
-              {direction === "inbound" ? (
-                // A foreign applicant entering the Philippines wouldn't pick
-                // from a fixed list of PH cities (that's outbound-only --
-                // where a Filipino goes to apply for a FOREIGN visa) -- free
-                // text instead, since HeyDream can't maintain a dropdown of
-                // every country's PH embassy.
-                <LabeledInput
-                  label="PH Embassy/Consulate Used"
-                  placeholder="e.g. Philippine Embassy in your country (if applicable)"
-                  value={embassy}
-                  onChangeText={setEmbassy}
-                />
-              ) : (
-                <View style={styles.fieldWrap}>
-                  <ThemedText style={styles.fieldLabel}>Embassy/Consulate</ThemedText>
-                  <View style={styles.embassyRow}>
-                    {EMBASSIES.map((e) => (
-                      <Pressable
-                        key={e.value}
-                        style={[styles.embassyPill, embassy === e.value && styles.embassyPillSelected]}
-                        onPress={() => setEmbassy(e.value)}
-                      >
-                        <ThemedText style={embassy === e.value ? styles.embassyTextSelected : undefined}>
-                          {e.label}
-                        </ThemedText>
-                      </Pressable>
-                    ))}
-                  </View>
-                </View>
-              )}
-              <DateField
-                label="Target Travel Date"
-                required
-                value={travelDate}
-                minimumDate={new Date()}
-                onChange={setTravelDate}
-              />
+            <View style={styles.stepNavRow}>
+              <Pressable style={styles.backButton} onPress={() => setStep(1)}>
+                <Ionicons name="arrow-back" size={16} color={Colors.dark} />
+                <ThemedText style={styles.backButtonText}>Back</ThemedText>
+              </Pressable>
+              <Pressable
+                style={[styles.nextButton, { flex: 1 }]}
+                onPress={() => {
+                  if (validateStep2()) setStep(3);
+                }}
+              >
+                <ThemedText style={styles.nextButtonText}>Continue to Documents</ThemedText>
+                <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
+              </Pressable>
             </View>
-
-            <Pressable
-              style={styles.nextButton}
-              onPress={() => {
-                if (validateStep1()) setStep(2);
-              }}
-            >
-              <ThemedText style={styles.nextButtonText}>Continue to Documents</ThemedText>
-              <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
-            </Pressable>
           </>
         )}
 
-        {step === 2 && (
+        {step === 3 && (
           <>
             <View style={styles.infoBanner}>
               <Ionicons name="information-circle" size={16} color={Colors.primary} />
@@ -668,11 +694,11 @@ export default function ApplyScreen() {
             )}
 
             <View style={styles.stepNavRow}>
-              <Pressable style={styles.backButton} onPress={() => setStep(1)}>
+              <Pressable style={styles.backButton} onPress={() => setStep(2)}>
                 <Ionicons name="arrow-back" size={16} color={Colors.dark} />
                 <ThemedText style={styles.backButtonText}>Back</ThemedText>
               </Pressable>
-              <Pressable style={[styles.nextButton, { flex: 1 }]} onPress={() => setStep(3)}>
+              <Pressable style={[styles.nextButton, { flex: 1 }]} onPress={() => setStep(4)}>
                 <ThemedText style={styles.nextButtonText}>Continue to Review</ThemedText>
                 <Ionicons name="arrow-forward" size={16} color={Colors.primary} />
               </Pressable>
@@ -680,7 +706,7 @@ export default function ApplyScreen() {
           </>
         )}
 
-        {step === 3 && (
+        {step === 4 && (
           <>
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Applicant Info</ThemedText>
@@ -736,7 +762,7 @@ export default function ApplyScreen() {
             </View>
 
             <View style={styles.stepNavRow}>
-              <Pressable style={styles.backButton} onPress={() => setStep(2)} disabled={isSubmitting}>
+              <Pressable style={styles.backButton} onPress={() => setStep(3)} disabled={isSubmitting}>
                 <Ionicons name="arrow-back" size={16} color={Colors.dark} />
                 <ThemedText style={styles.backButtonText}>Back</ThemedText>
               </Pressable>
@@ -754,7 +780,7 @@ export default function ApplyScreen() {
           </>
         )}
 
-        {step === 4 && resultBookingNumber && (
+        {step === 5 && resultBookingNumber && (
           <View style={styles.confirmWrap}>
             <View style={styles.confirmIconWrap}>
               <Ionicons name="time" size={36} color={Colors.accent} />
