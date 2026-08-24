@@ -147,7 +147,7 @@ export default function HomeScreen() {
           style={({ pressed }) => [styles.gateSwitchPill, pressed && styles.gateSwitchPillPressed]}
           onPress={reopenGate}
         >
-          <Ionicons name="swap-horizontal" size={13} color="#6C5CE7" />
+          <Ionicons name="swap-horizontal" size={13} color={Colors.white} />
           <ThemedText style={styles.gateSwitchPillText} numberOfLines={1}>
             {direction === "inbound"
               ? "Filipino traveling abroad instead?"
@@ -290,27 +290,29 @@ const styles = StyleSheet.create({
   heroLogoImage: { width: "100%", height: "100%" },
   heroBrand: { color: Colors.white, fontSize: 22, fontWeight: "800" },
   heroTagline: { color: "rgba(255,255,255,0.85)", fontSize: 13, marginTop: 2 },
+  // Deliberately understated -- a translucent, borderline-outline pill,
+  // not a second solid-white card. It used to be styled almost identically
+  // to the search bar below it (solid white, same shape, similar size),
+  // which read as two duplicate elements stacked on top of each other
+  // instead of a primary action (search) with a secondary hint above it.
   gateSwitchPill: {
     flexDirection: "row",
     alignSelf: "flex-start",
     alignItems: "center",
-    gap: 7,
+    gap: 6,
     maxWidth: "78%",
-    backgroundColor: Colors.white,
-    borderRadius: 30,
-    paddingHorizontal: 16,
-    paddingVertical: 9,
+    backgroundColor: "rgba(255,255,255,0.16)",
+    borderWidth: 1,
+    borderColor: "rgba(255,255,255,0.4)",
+    borderRadius: 20,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     marginTop: 14,
     marginBottom: 20,
     marginLeft: 20,
-    shadowColor: Colors.black,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.18,
-    shadowRadius: 10,
-    elevation: 4,
   },
-  gateSwitchPillPressed: { opacity: 0.85, transform: [{ translateY: -1 }] },
-  gateSwitchPillText: { color: "#6C5CE7", fontSize: 12.5, fontWeight: "700" },
+  gateSwitchPillPressed: { opacity: 0.7 },
+  gateSwitchPillText: { color: Colors.white, fontSize: 11.5, fontWeight: "600" },
   searchWrap: {
     marginTop: -26,
     marginHorizontal: 20,
