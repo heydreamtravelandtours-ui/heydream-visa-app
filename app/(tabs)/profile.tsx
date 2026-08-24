@@ -10,9 +10,9 @@ import { Ionicons } from "@expo/vector-icons";
 import { useFocusEffect, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
 import { useCallback, useState } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
-import { API_BASE_URL } from "@/api/config";
+import { VISA_WEB_BASE_URL } from "@/api/config";
 import * as api from "@/api/client";
 
 function initials(name: string) {
@@ -77,7 +77,7 @@ export default function ProfileScreen() {
         )}
       </SafeAreaView>
 
-      <View style={styles.menu}>
+      <ScrollView style={{ flex: 1 }} contentContainerStyle={styles.menu} showsVerticalScrollIndicator={false}>
         {!user && (
           <>
             <MenuRow
@@ -117,12 +117,12 @@ export default function ProfileScreen() {
         <MenuRow
           icon="reader-outline"
           label="Terms of Service"
-          onPress={() => WebBrowser.openBrowserAsync(`${API_BASE_URL}/visa/terms.php`)}
+          onPress={() => WebBrowser.openBrowserAsync(`${VISA_WEB_BASE_URL}/terms.php`)}
         />
         {user && (
           <MenuRow icon="log-out-outline" label="Log Out" onPress={handleLogout} destructive />
         )}
-      </View>
+      </ScrollView>
     </View>
   );
 }

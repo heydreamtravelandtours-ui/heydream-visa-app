@@ -32,6 +32,13 @@ const PROD_BASE_URL = (Constants.expoConfig?.extra?.apiBaseUrl as string) || "";
 
 export const API_BASE_URL = __DEV__ ? DEV_BASE_URL : PROD_BASE_URL;
 
+// Public visa pages (Terms of Service, etc.) are served from their own
+// subdomain in production -- visa/index.php's own canonical tag points at
+// visa.heydreamtravel.com, not heydreamtravel.com/visa/. Opening
+// `${API_BASE_URL}/visa/terms.php` in production hit a 404 there and the
+// device's browser fell back to a Google search instead of the real page.
+export const VISA_WEB_BASE_URL = __DEV__ ? `${DEV_BASE_URL}/visa` : "https://visa.heydreamtravel.com";
+
 // Same Firebase Web OAuth client the website already verifies Google
 // sign-ins against (config/firebase_config.php's FIREBASE_CLIENT_ID) --
 // using it here too means api/mobile-google-login.php needs no separate

@@ -24,6 +24,7 @@ import { appendFileToFormData } from "@/api/form-file";
 import { showAlert } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useMemo, useState } from "react";
@@ -62,6 +63,8 @@ interface ApplicantDraft {
   passportNum: string;
   passportExpiry: Date | null;
   address: string;
+  occupation: string;
+  travelHistory: string;
   expanded: boolean;
 }
 
@@ -90,6 +93,8 @@ function emptyApplicant(): ApplicantDraft {
     passportNum: "",
     passportExpiry: null,
     address: "",
+    occupation: "",
+    travelHistory: "",
     expanded: true,
   };
 }
@@ -120,8 +125,6 @@ export default function ApplyScreen() {
   const [destination, setDestination] = useState("");
   const [embassy, setEmbassy] = useState(direction === "inbound" ? "" : "manila");
   const [travelDate, setTravelDate] = useState<Date | null>(null);
-  const [occupation, setOccupation] = useState("");
-  const [travelHistory, setTravelHistory] = useState("");
 
   // Keyed "${applicantIndex}_${label}" -- staged, not yet uploaded.
   const [stagedFiles, setStagedFiles] = useState<Record<string, StagedFile>>({});
@@ -254,14 +257,14 @@ export default function ApplyScreen() {
         passport_number: a.passportNum.trim(),
         passport_expiry: toLocalDateString(a.passportExpiry) ?? null,
         address: a.address.trim(),
+        occupation: a.occupation.trim() || null,
+        travel_history: a.travelHistory.trim() || null,
       }))
     );
 
     const specialRequestsParts = [
       `Destination: ${destination.trim()}`,
       `Embassy: ${embassy}`,
-      `Occupation: ${occupation.trim()}`,
-      `Travel History: ${travelHistory.trim()}`,
     ];
     const otherTravelers = applicants.slice(1).map(formatApplicantName).filter(Boolean);
     if (otherTravelers.length > 0) {
@@ -372,7 +375,8 @@ export default function ApplyScreen() {
             {groupedOptions.length > 0 && (
               <View style={styles.section}>
                 <ThemedText style={styles.sectionTitle}>Visa Type</ThemedText>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.typeTabsRow}>
+                <View style={styles.typeTabsWrap}>
+                  <ScrollView horizontal showsHorizontalScrollIndicator style={styles.typeTabsRow}>
                   {groupedOptions.map(([type]) => (
                     <Pressable
                       key={type}
@@ -388,7 +392,17 @@ export default function ApplyScreen() {
                       </ThemedText>
                     </Pressable>
                   ))}
-                </ScrollView>
+                  </ScrollView>
+                  {groupedOptions.length > 2 && (
+                    <LinearGradient
+                      colors={["rgba(255,255,255,0)", Colors.white]}
+                      start={{ x: 0, y: 0 }}
+                      end={{ x: 1, y: 0 }}
+                      style={styles.typeTabsFade}
+                      pointerEvents="none"
+                    />
+                  )}
+                </View>
 
                 <ThemedText style={styles.sectionTitle}>Processing Option</ThemedText>
                 {optionsForSelectedType.map((opt) => (
@@ -511,6 +525,22 @@ export default function ApplyScreen() {
                         value={a.address}
                         onChangeText={(v) => updateApplicant(idx, { address: v })}
                       />
+                      <View style={styles.rowFields}>
+                        <LabeledInput
+                          label="Occupation"
+                          placeholder="Job title"
+                          value={a.occupation}
+                          onChangeText={(v) => updateApplicant(idx, { occupation: v })}
+                          containerStyle={styles.inputHalf}
+                        />
+                        <LabeledInput
+                          label="Travel History"
+                          placeholder="Countries visited"
+                          value={a.travelHistory}
+                          onChangeText={(v) => updateApplicant(idx, { travelHistory: v })}
+                          containerStyle={styles.inputHalf}
+                        />
+                      </View>
                     </View>
                   )}
                 </View>
@@ -573,20 +603,6 @@ export default function ApplyScreen() {
                 value={travelDate}
                 minimumDate={new Date()}
                 onChange={setTravelDate}
-              />
-              <LabeledInput
-                label="Occupation"
-                placeholder="Your job title"
-                value={occupation}
-                onChangeText={setOccupation}
-              />
-              <LabeledInput
-                label="Travel History"
-                placeholder="Countries visited in last 5 years"
-                style={styles.multiline}
-                multiline
-                value={travelHistory}
-                onChangeText={setTravelHistory}
               />
             </View>
 
@@ -858,7 +874,13 @@ const styles = StyleSheet.create({
   rowFields: { flexDirection: "row", gap: 10 },
   inputHalf: { flex: 1 },
   multiline: { minHeight: 80, textAlignVertical: "top" },
-  typeTabsRow: { marginBottom: 16 },
+  typeTabsWrap: { position: "relative", marginBottom: 16 },
+  typeTabsRow: {},
+  // A row of pills with more off-screen to the right had no visual hint
+  // that it scrolls -- the native indicator is subtle on Android and this
+  // fade makes it obvious there's more without needing to discover it by
+  // accident.
+  typeTabsFade: { position: "absolute", right: 0, top: 0, bottom: 0, width: 28 },
   typeTab: {
     borderWidth: 1,
     borderColor: "#e2e8f0",

@@ -81,6 +81,11 @@ export default function HomeScreen() {
       await load();
       setIsLoading(false);
     })();
+    // Categories differ between directions (e.g. outbound's continents vs
+    // inbound's countries) -- a category chip selected before switching
+    // could match nothing in the new list, silently showing "no results"
+    // instead of the full list.
+    setActiveCategory(null);
   }, [load]);
 
   const onRefresh = async () => {

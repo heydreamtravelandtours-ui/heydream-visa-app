@@ -126,7 +126,7 @@ interface TrackingStep {
 // per-event history table for a customer to read (confirmed while
 // investigating this repo). admin_notes IS a running text log though (see
 // the "Notes from your travel partner" card below), just not step-shaped.
-function getTrackingSteps(b: Booking): TrackingStep[] {
+function getTrackingSteps(b: Booking, rejectedDocCount: number): TrackingStep[] {
   if (b.booking_status === "cancelled") {
     const cancelledSteps: TrackingStep[] = [
       { label: "Booking Received", description: "This booking has been cancelled.", state: "urgent" },
@@ -148,13 +148,19 @@ function getTrackingSteps(b: Booking): TrackingStep[] {
             : "A visa is required for this booking. Please submit it below.",
         state: "urgent",
       }
-    : {
-        label: "Documents",
-        description: b.travel_documents
-          ? "Your documents are on file."
-          : "Please upload your travel requirements.",
-        state: b.travel_documents ? "completed" : "active",
-      };
+    : rejectedDocCount > 0
+      ? {
+          label: "Documents",
+          description: `${rejectedDocCount === 1 ? "A document was" : `${rejectedDocCount} documents were`} rejected -- please upload a replacement.`,
+          state: "urgent",
+        }
+      : {
+          label: "Documents",
+          description: b.travel_documents
+            ? "Your documents are on file."
+            : "Please upload your travel requirements.",
+          state: b.travel_documents ? "completed" : "active",
+        };
 
   const approvalStep: TrackingStep =
     b.booking_status === "pending"
@@ -250,6 +256,7 @@ export default function ApplicationDetailScreen() {
   const [booking, setBooking] = useState<Booking | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [rejectedDocCount, setRejectedDocCount] = useState(0);
 
   const [paymentReference, setPaymentReference] = useState("");
   const [proofUri, setProofUri] = useState<string | null>(null);
@@ -267,6 +274,15 @@ export default function ApplicationDetailScreen() {
       }
     } else {
       setErrorMessage(result.message || result.error || "Failed to load application.");
+    }
+    // The booking row itself has no aggregate "a document was rejected"
+    // flag (current_visa_document_status only covers renewal's Current
+    // Visa upload specifically) -- this screen's Documents section
+    // otherwise looked no different whether everything was fine or an
+    // admin had rejected a file, unless you dug into Manage Documents.
+    const docsResult = await api.listDocuments(String(bookingNumber));
+    if (docsResult.success) {
+      setRejectedDocCount((docsResult.documents || []).filter((d: any) => d.status === "rejected").length);
     }
   }, [bookingNumber]);
 
@@ -294,6 +310,20 @@ export default function ApplicationDetailScreen() {
     booking.booking_status === "confirmed" &&
     booking.payment_status !== "paid" &&
     !booking.payment_proof;
+
+  // admin-api.php's reject_payment clears payment_proof back to null (so
+  // canPay goes true again, letting you resubmit) but only ever records
+  // the reason as one more line appended to the cumulative admin_notes
+  // log -- so a rejected payment silently looked identical to "never
+  // submitted one yet" here, with the reason buried in a growing blob
+  // instead of shown where it's actually needed, next to the form.
+  const lastPaymentRejection = (booking?.admin_notes || "")
+    .split("\n")
+    .filter((line) => line.startsWith("[Payment Rejected"))
+    .pop();
+  const paymentRejectionReason = lastPaymentRejection
+    ? lastPaymentRejection.replace(/^\[Payment Rejected[^\]]*\]\s*/, "")
+    : null;
 
   const pickProof = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -392,10 +422,121 @@ export default function ApplicationDetailScreen() {
         </View>
 
         <View style={styles.section}>
-          <TrackingTracker steps={getTrackingSteps(booking)} />
+          <TrackingTracker steps={getTrackingSteps(booking, rejectedDocCount)} />
         </View>
 
+        {/* Payment -- proof already on file, a form to submit one, or a
+            waiting notice, whichever applies. */}
+        {!!booking.payment_proof ? (
+          <View style={styles.section}>
+            <View style={styles.cardTitleRow}>
+              <Ionicons name="card" size={16} color={Colors.primary} />
+              <ThemedText style={styles.sectionTitle}>Payment Proof Submitted</ThemedText>
+            </View>
+            <Pressable
+              style={styles.receiptRow}
+              onPress={() => paymentProofUrl && Linking.openURL(paymentProofUrl)}
+            >
+              {paymentProofUrl && (
+                <Image source={{ uri: paymentProofUrl }} style={styles.receiptThumb} contentFit="cover" />
+              )}
+              <View style={{ flex: 1 }}>
+                <ThemedText style={styles.secondaryButtonText}>View Receipt Screenshot</ThemedText>
+              </View>
+              <Ionicons name="open-outline" size={18} color={Colors.primary} />
+            </Pressable>
+          </View>
+        ) : canPay ? (
+          <View style={styles.section}>
+            <View style={styles.cardTitleRow}>
+              <Ionicons name="card" size={16} color={Colors.primary} />
+              <ThemedText style={styles.sectionTitle}>Submit Payment</ThemedText>
+            </View>
+            {!!paymentRejectionReason && (
+              <View style={styles.rejectedBanner}>
+                <Ionicons name="warning" size={15} color="#B91C1C" />
+                <ThemedText style={styles.rejectedBannerText}>
+                  Your last payment was rejected: {paymentRejectionReason}
+                </ThemedText>
+              </View>
+            )}
+            <ThemedText style={styles.helperText}>
+              Pay via GCash, then enter the reference number and attach your receipt.
+            </ThemedText>
+            <TextInput
+              style={styles.input}
+              placeholder="GCash Reference Number"
+              placeholderTextColor="#94a3b8"
+              value={paymentReference}
+              onChangeText={setPaymentReference}
+            />
+            <Pressable style={styles.secondaryButton} onPress={pickProof}>
+              <Ionicons
+                name={proofUri ? "checkmark-circle" : "camera-outline"}
+                size={16}
+                color={proofUri ? "#2E7D32" : Colors.primary}
+              />
+              <ThemedText style={styles.secondaryButtonText}>
+                {proofUri ? "Receipt Attached" : "Attach Receipt Photo"}
+              </ThemedText>
+            </Pressable>
+            <Pressable
+              style={styles.submitButton}
+              onPress={submitPayment}
+              disabled={isSubmittingPayment}
+            >
+              {isSubmittingPayment ? (
+                <ActivityIndicator color={Colors.primary} />
+              ) : (
+                <ThemedText style={styles.submitButtonText}>Submit Payment</ThemedText>
+              )}
+            </Pressable>
+          </View>
+        ) : booking.payment_status === "unpaid" && booking.booking_status !== "confirmed" ? (
+          <View style={styles.noticeBox}>
+            <Ionicons name="time-outline" size={18} color={Colors.accent} />
+            <ThemedText style={styles.noticeText}>
+              Waiting for an agent to review and confirm pricing before payment can be submitted.
+            </ThemedText>
+          </View>
+        ) : null}
+
+        {requirements.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.cardTitleRow}>
+              <Ionicons name="document-text" size={16} color={Colors.primary} />
+              <ThemedText style={styles.sectionTitle}>Documents</ThemedText>
+            </View>
+            {rejectedDocCount > 0 && (
+              <View style={styles.rejectedBanner}>
+                <Ionicons name="warning" size={15} color="#B91C1C" />
+                <ThemedText style={styles.rejectedBannerText}>
+                  {rejectedDocCount === 1 ? "1 document was" : `${rejectedDocCount} documents were`}{" "}
+                  rejected. Open Manage Documents to see why and upload a replacement.
+                </ThemedText>
+              </View>
+            )}
+            {requirements.map((label) => (
+              <View key={label} style={styles.requirementRow}>
+                <View style={styles.requirementDot} />
+                <ThemedText style={styles.requirement}>{label}</ThemedText>
+              </View>
+            ))}
+            <Pressable
+              style={styles.secondaryButton}
+              onPress={() => router.push(`/documents/upload?bookingNumber=${booking.booking_number}`)}
+            >
+              <Ionicons name="cloud-upload-outline" size={16} color={Colors.primary} />
+              <ThemedText style={styles.secondaryButtonText}>Manage Documents</ThemedText>
+            </Pressable>
+          </View>
+        )}
+
         <View style={styles.section}>
+          <View style={styles.cardTitleRow}>
+            <Ionicons name="reader" size={16} color={Colors.primary} />
+            <ThemedText style={styles.sectionTitle}>Booking Summary</ThemedText>
+          </View>
           <Row label="Applicant" value={`${booking.email}${booking.phone ? " • " + booking.phone : ""}`} />
           <Row
             label="Target Date"
@@ -439,24 +580,6 @@ export default function ApplicationDetailScreen() {
           )}
         </View>
 
-        {!!booking.payment_proof && (
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Payment Proof Submitted</ThemedText>
-            <Pressable
-              style={styles.receiptRow}
-              onPress={() => paymentProofUrl && Linking.openURL(paymentProofUrl)}
-            >
-              {paymentProofUrl && (
-                <Image source={{ uri: paymentProofUrl }} style={styles.receiptThumb} contentFit="cover" />
-              )}
-              <View style={{ flex: 1 }}>
-                <ThemedText style={styles.secondaryButtonText}>View Receipt Screenshot</ThemedText>
-              </View>
-              <Ionicons name="open-outline" size={18} color={Colors.primary} />
-            </Pressable>
-          </View>
-        )}
-
         {!!booking.admin_notes && (
           <View style={[styles.section, styles.notesSection]}>
             <View style={styles.cardTitleRow}>
@@ -464,71 +587,6 @@ export default function ApplicationDetailScreen() {
               <ThemedText style={styles.sectionTitle}>Notes From Your Travel Partner</ThemedText>
             </View>
             <ThemedText style={styles.notesText}>{booking.admin_notes}</ThemedText>
-          </View>
-        )}
-
-        {requirements.length > 0 && (
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Documents</ThemedText>
-            {requirements.map((label) => (
-              <View key={label} style={styles.requirementRow}>
-                <View style={styles.requirementDot} />
-                <ThemedText style={styles.requirement}>{label}</ThemedText>
-              </View>
-            ))}
-            <Pressable
-              style={styles.secondaryButton}
-              onPress={() => router.push(`/documents/upload?bookingNumber=${booking.booking_number}`)}
-            >
-              <Ionicons name="cloud-upload-outline" size={16} color={Colors.primary} />
-              <ThemedText style={styles.secondaryButtonText}>Manage Documents</ThemedText>
-            </Pressable>
-          </View>
-        )}
-
-        {canPay && (
-          <View style={styles.section}>
-            <ThemedText style={styles.sectionTitle}>Submit Payment</ThemedText>
-            <ThemedText style={styles.helperText}>
-              Pay via GCash, then enter the reference number and attach your receipt.
-            </ThemedText>
-            <TextInput
-              style={styles.input}
-              placeholder="GCash Reference Number"
-              placeholderTextColor="#94a3b8"
-              value={paymentReference}
-              onChangeText={setPaymentReference}
-            />
-            <Pressable style={styles.secondaryButton} onPress={pickProof}>
-              <Ionicons
-                name={proofUri ? "checkmark-circle" : "camera-outline"}
-                size={16}
-                color={proofUri ? "#2E7D32" : Colors.primary}
-              />
-              <ThemedText style={styles.secondaryButtonText}>
-                {proofUri ? "Receipt Attached" : "Attach Receipt Photo"}
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.submitButton}
-              onPress={submitPayment}
-              disabled={isSubmittingPayment}
-            >
-              {isSubmittingPayment ? (
-                <ActivityIndicator color={Colors.primary} />
-              ) : (
-                <ThemedText style={styles.submitButtonText}>Submit Payment</ThemedText>
-              )}
-            </Pressable>
-          </View>
-        )}
-
-        {!canPay && booking.payment_status === "unpaid" && booking.booking_status !== "confirmed" && (
-          <View style={styles.noticeBox}>
-            <Ionicons name="time-outline" size={18} color={Colors.accent} />
-            <ThemedText style={styles.noticeText}>
-              Waiting for an agent to review and confirm pricing before payment can be submitted.
-            </ThemedText>
           </View>
         )}
 
@@ -680,6 +738,18 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   noticeText: { flex: 1, color: "#8A6100", lineHeight: 19, fontSize: 13 },
+  rejectedBanner: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+    backgroundColor: "#FEF2F2",
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 14,
+  },
+  rejectedBannerText: { flex: 1, color: "#B91C1C", fontSize: 12.5, lineHeight: 18, fontWeight: "600" },
   tracker: {},
   trackerRow: { flexDirection: "row", gap: 12 },
   trackerRail: { alignItems: "center" },

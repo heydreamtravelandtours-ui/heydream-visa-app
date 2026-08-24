@@ -39,6 +39,24 @@ function iconFor(type: string): keyof typeof Ionicons.glyphMap {
   return "notifications-outline";
 }
 
+// Mirrors js/auth-menu.js's notifIsBad() exactly -- bad-news notifications
+// (cancellations, rejections, failed uploads) always read red, whether read
+// or unread, same rule the website already applies.
+const BAD_TYPES = new Set([
+  "upload_failed",
+  "booking_auto_cancelled",
+  "booking_cancelled",
+  "payment_rejected",
+  "inquiry_cancelled",
+  "visa_rejected",
+  "visa_requested",
+  "document_rejected",
+  "additional_documents_requested",
+]);
+function isBad(type: string) {
+  return BAD_TYPES.has(type);
+}
+
 export default function NotificationsScreen() {
   const router = useRouter();
   const [notifications, setNotifications] = useState<Notification[]>([]);
@@ -79,7 +97,15 @@ export default function NotificationsScreen() {
       api.markNotificationRead(n.id);
     }
     if (n.booking_number) {
-      router.push(`/application/${n.booking_number}`);
+      // Document-related notifications (missing_documents, document_rejected,
+      // additional_documents_requested) used to always land on the general
+      // Application Details screen, requiring an extra "Manage Documents"
+      // tap to get anywhere useful -- jump straight there instead.
+      if (n.type.includes("document")) {
+        router.push(`/documents/upload?bookingNumber=${n.booking_number}`);
+      } else {
+        router.push(`/application/${n.booking_number}`);
+      }
     }
   };
 
@@ -131,20 +157,30 @@ export default function NotificationsScreen() {
               ]}
               onPress={() => handlePress(n)}
             >
-              <View style={[styles.iconWrap, !n.is_read && styles.iconWrapUnread]}>
+              <View
+                style={[
+                  styles.iconWrap,
+                  !n.is_read && styles.iconWrapUnread,
+                  isBad(n.type) && (n.is_read ? styles.iconWrapBad : styles.iconWrapBadUnread),
+                ]}
+              >
                 <Ionicons
                   name={iconFor(n.type)}
                   size={18}
-                  color={n.is_read ? Colors.text : Colors.primary}
+                  color={isBad(n.type) ? (n.is_read ? "#dc2626" : Colors.white) : n.is_read ? Colors.text : Colors.primary}
                 />
               </View>
               <View style={{ flex: 1 }}>
-                <ThemedText style={styles.cardTitle}>{n.title}</ThemedText>
+                <ThemedText style={[styles.cardTitle, isBad(n.type) && styles.cardTitleBad]}>
+                  {n.title}
+                </ThemedText>
                 <ThemedText style={styles.cardMessage} numberOfLines={3}>
                   {n.message}
                 </ThemedText>
               </View>
-              {!n.is_read && <View style={styles.unreadDot} />}
+              {!n.is_read && (
+                <View style={[styles.unreadDot, isBad(n.type) && styles.unreadDotBad]} />
+              )}
             </Pressable>
           ))}
         </ScrollView>
@@ -181,7 +217,13 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   iconWrapUnread: { backgroundColor: Colors.white },
+  // Bad-news notifications (cancellations, rejections, failed uploads)
+  // always read red, whether read or unread -- see BAD_TYPES above.
+  iconWrapBad: { backgroundColor: "#fee2e2" },
+  iconWrapBadUnread: { backgroundColor: "#dc2626" },
   cardTitle: { fontWeight: "700", color: Colors.dark, fontSize: 14, marginBottom: 3 },
+  cardTitleBad: { color: "#b91c1c" },
   cardMessage: { color: Colors.text, fontSize: 12.5, lineHeight: 17 },
   unreadDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: Colors.primary, marginTop: 6 },
+  unreadDotBad: { backgroundColor: "#dc2626" },
 });

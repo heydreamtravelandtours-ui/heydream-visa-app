@@ -158,7 +158,7 @@ export default function VisaDetailsScreen() {
       <StatusBar style="light" />
       <ScreenHeader title={visa.title} />
 
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={[styles.scrollContent, { paddingBottom: 220 + insets.bottom }]}>
         <View style={styles.heroRow}>
           {visa.icon_type === "image" && visa.icon_value ? (
             <Image source={{ uri: visa.icon_value }} style={styles.heroImage} contentFit="cover" />
@@ -218,6 +218,26 @@ export default function VisaDetailsScreen() {
           </View>
         )}
 
+        {!!visa.important_notes && (
+          <View style={styles.card}>
+            <View style={styles.cardTitleRow}>
+              <Ionicons name="alert-circle" size={18} color={Colors.gold} />
+              <ThemedText style={styles.cardTitle}>Important Notes</ThemedText>
+            </View>
+            <ThemedText style={styles.description}>{visa.important_notes}</ThemedText>
+          </View>
+        )}
+
+        {!!visa.disclaimer && (
+          <View style={styles.card}>
+            <View style={styles.cardTitleRow}>
+              <Ionicons name="shield-checkmark" size={18} color={Colors.gold} />
+              <ThemedText style={styles.cardTitle}>Disclaimer</ThemedText>
+            </View>
+            <ThemedText style={styles.description}>{visa.disclaimer}</ThemedText>
+          </View>
+        )}
+
         {groupedOptions.length > 0 && (
           <View style={styles.card}>
             <View style={styles.cardTitleRow}>
@@ -257,26 +277,6 @@ export default function VisaDetailsScreen() {
             <ThemedText style={styles.footnote}>
               Each option&apos;s price is its own total. You&apos;ll choose one of these when applying.
             </ThemedText>
-          </View>
-        )}
-
-        {!!visa.important_notes && (
-          <View style={styles.card}>
-            <View style={styles.cardTitleRow}>
-              <Ionicons name="alert-circle" size={18} color={Colors.gold} />
-              <ThemedText style={styles.cardTitle}>Important Notes</ThemedText>
-            </View>
-            <ThemedText style={styles.description}>{visa.important_notes}</ThemedText>
-          </View>
-        )}
-
-        {!!visa.disclaimer && (
-          <View style={styles.card}>
-            <View style={styles.cardTitleRow}>
-              <Ionicons name="shield-checkmark" size={18} color={Colors.gold} />
-              <ThemedText style={styles.cardTitle}>Disclaimer</ThemedText>
-            </View>
-            <ThemedText style={styles.description}>{visa.disclaimer}</ThemedText>
           </View>
         )}
       </ScrollView>
