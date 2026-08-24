@@ -25,6 +25,7 @@ import {
   TextInput,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Ionicons } from "@expo/vector-icons";
 
 interface ChatMessage {
@@ -42,6 +43,7 @@ export default function BookingChatScreen() {
   const { bookingNumber } = useLocalSearchParams<{ bookingNumber: string }>();
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
+  const insets = useSafeAreaInsets();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -142,7 +144,7 @@ export default function BookingChatScreen() {
           </ScrollView>
         )}
 
-        <View style={styles.inputRow}>
+        <View style={[styles.inputRow, { paddingBottom: 12 + insets.bottom }]}>
           <TextInput
             style={styles.input}
             placeholder="Type a message..."
