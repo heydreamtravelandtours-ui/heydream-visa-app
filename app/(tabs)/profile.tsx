@@ -7,11 +7,13 @@ import { useAuth } from "@/contexts/auth-context";
 import { useUnreadCount } from "@/hooks/use-unread-count";
 import { showConfirm } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
-import { useRouter } from "expo-router";
+import { useFocusEffect, useRouter } from "expo-router";
 import * as WebBrowser from "expo-web-browser";
+import { useCallback, useState } from "react";
 import { Pressable, StyleSheet, View } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 import { API_BASE_URL } from "@/api/config";
+import * as api from "@/api/client";
 
 function initials(name: string) {
   return name
@@ -27,6 +29,17 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { user, logout } = useAuth();
   const { unreadCount } = useUnreadCount();
+  const insets = useSafeAreaInsets();
+  const [hasPassword, setHasPassword] = useState(true);
+
+  useFocusEffect(
+    useCallback(() => {
+      if (!user) return;
+      api.getProfile().then((result) => {
+        if (result.success) setHasPassword(!!result.data.has_password);
+      });
+    }, [user])
+  );
 
   const handleLogout = () => {
     showConfirm("Log Out", "Are you sure you want to log out?", [
@@ -38,7 +51,13 @@ export default function ProfileScreen() {
   return (
     <View style={styles.container}>
       <SafeAreaView edges={["top"]} style={styles.hero}>
-        {user && <HeaderActions unreadCount={unreadCount} showProfile={false} style={styles.heroActions} />}
+        {user && (
+          <HeaderActions
+            unreadCount={unreadCount}
+            showProfile={false}
+            style={[styles.heroActions, { top: insets.top + 12 }]}
+          />
+        )}
         {user ? (
           <>
             <View style={styles.avatar}>
@@ -86,8 +105,8 @@ export default function ProfileScreen() {
               onPress={() => router.push("/edit-profile")}
             />
             <MenuRow
-              icon="lock-closed-outline"
-              label="Change Password"
+              icon={hasPassword ? "lock-closed-outline" : "key-outline"}
+              label={hasPassword ? "Change Password" : "Set Up Password"}
               onPress={() => router.push("/change-password")}
             />
           </>

@@ -1,5 +1,6 @@
 // app/_layout.tsx
 
+import { AlertHost } from "@/components/alert-host";
 import { AuthProvider } from "@/contexts/auth-context";
 import { GateProvider, useGateChoice, VisaGate } from "@/components/visa-gate";
 import { Colors } from "@/constants/theme";
@@ -71,6 +72,7 @@ export default function RootLayout() {
           <ThemeProvider value={colorScheme === "dark" ? DarkTheme : DefaultTheme}>
             <GatedApp />
             <StatusBar style="dark" />
+            <AlertHost />
           </ThemeProvider>
         </GateProvider>
       </AuthProvider>

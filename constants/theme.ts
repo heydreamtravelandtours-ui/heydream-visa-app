@@ -21,7 +21,14 @@ export const ThemeColors = {
     tabIconSelected: Colors.primary,
   },
   dark: {
-    text: Colors.white,
+    // Deliberately NOT Colors.white: this app has no dark-mode-aware
+    // backgrounds (every card/screen is a fixed light color regardless of
+    // system theme), so a bare <ThemedText> picking up a real "dark theme"
+    // text color here renders invisible white-on-white the moment the
+    // device's system theme is dark -- confirmed live on a real device
+    // (processing-option cards, among others). Keep this the same readable
+    // dark color as light mode until the app actually grows dark surfaces.
+    text: Colors.text,
     background: Colors.dark,
     tint: Colors.accent,
     icon: Colors.lightGray,

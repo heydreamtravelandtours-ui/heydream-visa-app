@@ -3,8 +3,14 @@
 // tab header (Home, Applications, Profile) so they all show the same number
 // instead of each screen fetching its own -- previously only index.tsx did
 // this, which is why the bell/badge only ever showed up on the Home tab.
+//
+// Refetches on every focus (not just mount): tabs stay mounted once
+// visited, so without this, reading a notification and switching back to a
+// tab left its badge showing the stale pre-read count -- confirmed on a
+// real device the badge never went down after opening Notifications.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
+import { useFocusEffect } from "expo-router";
 import * as api from "@/api/client";
 import { useAuth } from "@/contexts/auth-context";
 
@@ -22,9 +28,7 @@ export function useUnreadCount() {
     });
   }, [user]);
 
-  useEffect(() => {
-    refresh();
-  }, [refresh]);
+  useFocusEffect(refresh);
 
   return { unreadCount, refresh };
 }

@@ -1,32 +1,48 @@
 // components/header-actions.tsx
-// Notification bell (with unread badge) + profile shortcut, for use in any
-// tab header on a light background (Applications, Profile). Home has its
-// own navy-hero variant of the same idea inline in (tabs)/index.tsx; this
-// is the light-background counterpart so the bell/badge isn't Home-only.
+// Notification bell (with unread badge) + profile shortcut, shared by every
+// tab header (Home, Applications, Profile) so the badge looks and behaves
+// identically everywhere. Previously Home hand-rolled its own separate
+// copy of this same markup/styles, which is why the badge looked
+// inconsistent from one tab to the next -- one real component now, with a
+// `variant` for the two header backgrounds it appears on.
 
 import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
-import { Pressable, StyleSheet, Text, View, ViewStyle } from "react-native";
+import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from "react-native";
+
+const VARIANTS = {
+  // White header (Applications, Profile)
+  light: { buttonBg: "#E8F0FE", iconColor: Colors.primary },
+  // Navy hero header (Home)
+  dark: { buttonBg: "rgba(255,255,255,0.2)", iconColor: Colors.white },
+};
 
 export function HeaderActions({
   unreadCount,
   showProfile = true,
+  variant = "light",
   style,
 }: {
   unreadCount: number;
   showProfile?: boolean;
-  style?: ViewStyle;
+  variant?: keyof typeof VARIANTS;
+  style?: StyleProp<ViewStyle>;
 }) {
   const router = useRouter();
   const { user } = useAuth();
+  const { buttonBg, iconColor } = VARIANTS[variant];
 
   return (
     <View style={[styles.row, style]}>
       {user && (
-        <Pressable style={styles.button} onPress={() => router.push("/notifications")} hitSlop={8}>
-          <Ionicons name="notifications-outline" size={18} color={Colors.primary} />
+        <Pressable
+          style={[styles.button, { backgroundColor: buttonBg }]}
+          onPress={() => router.push("/notifications")}
+          hitSlop={8}
+        >
+          <Ionicons name="notifications-outline" size={18} color={iconColor} />
           {unreadCount > 0 && (
             <View style={styles.badge}>
               <Text style={styles.badgeText}>{unreadCount > 9 ? "9+" : unreadCount}</Text>
@@ -36,11 +52,11 @@ export function HeaderActions({
       )}
       {showProfile && (
         <Pressable
-          style={styles.button}
+          style={[styles.button, { backgroundColor: buttonBg }]}
           onPress={() => router.push(user ? "/(tabs)/profile" : "/(auth)/login")}
           hitSlop={8}
         >
-          <Ionicons name="person-outline" size={18} color={Colors.primary} />
+          <Ionicons name="person-outline" size={18} color={iconColor} />
         </Pressable>
       )}
     </View>
@@ -53,21 +69,22 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: "#E8F0FE",
     alignItems: "center",
     justifyContent: "center",
   },
   badge: {
     position: "absolute",
-    top: -2,
-    right: -2,
-    minWidth: 16,
-    height: 16,
-    borderRadius: 8,
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: "#E53935",
     alignItems: "center",
     justifyContent: "center",
-    paddingHorizontal: 3,
+    paddingHorizontal: 4,
+    borderWidth: 1.5,
+    borderColor: Colors.white,
   },
-  badgeText: { color: Colors.white, fontSize: 9, fontWeight: "800" },
+  badgeText: { color: Colors.white, fontSize: 9.5, fontWeight: "800" },
 });
