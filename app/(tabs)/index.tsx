@@ -23,10 +23,9 @@ import {
   ScrollView,
   StyleSheet,
   TextInput,
-  useWindowDimensions,
   View,
 } from "react-native";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
 
 interface Visa {
   id: number;
@@ -66,11 +65,18 @@ export default function HomeScreen() {
   const [activeCategory, setActiveCategory] = useState<string | null>(null);
   const { unreadCount } = useUnreadCount();
   // Fixed at 240 regardless of device used to eat over a third of an iPhone
-  // SE's screen (667pt tall) before any visa card was visible. Scaling with
-  // window height keeps roughly the same proportion on tall phones while
-  // shrinking it on short ones, clamped so it never gets cramped or huge.
-  const { height: windowHeight } = useWindowDimensions();
-  const heroHeight = Math.min(240, Math.max(190, windowHeight * 0.28));
+  // SE's screen (667pt tall) before any visa card was visible. A first pass
+  // at shrinking this scaled off raw window height, which doesn't track the
+  // actual constraint -- the safe-area top inset (status bar / notch) plus
+  // the header row, gate-switch pill, and search bar are all fixed-height
+  // flow/absolute content stacked inside this container, and on a device
+  // with a larger inset than assumed, that content collided with the
+  // search bar instead of just being close to it. Basing this on the real
+  // inset directly (top row ~44 + gate pill block ~64 + search bar's own
+  // reserved space ~62, plus a buffer) guarantees enough room on every
+  // device instead of guessing from total screen height.
+  const insets = useSafeAreaInsets();
+  const heroHeight = Math.min(250, Math.max(200, insets.top + 190));
 
   const load = useCallback(async () => {
     const result = await api.getVisaList(direction);
