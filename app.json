@@ -48,8 +48,7 @@
           }
         }
       ],
-      "@react-native-community/datetimepicker",
-      "./plugins/withTwoLineAppName"
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true
