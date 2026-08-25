@@ -672,9 +672,7 @@ function SummaryTile({
         <Ionicons name={icon} size={13} color={Colors.primary} />
         <ThemedText style={styles.tileLabel}>{label}</ThemedText>
       </View>
-      <ThemedText style={styles.tileValue} numberOfLines={2}>
-        {value}
-      </ThemedText>
+      <ThemedText style={styles.tileValue}>{value}</ThemedText>
     </View>
   );
 }

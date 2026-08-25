@@ -60,6 +60,7 @@ export function AlertHost() {
                 key={idx}
                 style={({ pressed }) => [
                   styles.button,
+                  state.buttons.length > 2 && styles.buttonStacked,
                   b.style === "cancel" && styles.buttonCancel,
                   b.style === "destructive" && styles.buttonDestructive,
                   b.style !== "cancel" && b.style !== "destructive" && styles.buttonPrimary,
@@ -122,6 +123,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  // 3+ stacked buttons (buttonColumn) can't keep `flex: 1` -- the parent's
+  // height is intrinsic/auto, not a fixed size to divide up, so Yoga was
+  // collapsing every button's content (including its Text child) to zero
+  // height instead of just sizing each to its own content. Confirmed live:
+  // the colored button background rendered fine, but its label text was
+  // invisible. `flex: 0` + explicit width restores normal content-sized
+  // rows stacked vertically.
+  buttonStacked: { flex: 0, width: "100%" },
   buttonPrimary: { backgroundColor: Colors.gold },
   buttonCancel: { backgroundColor: "#F0F2F5" },
   buttonDestructive: { backgroundColor: "#FDECEA" },
