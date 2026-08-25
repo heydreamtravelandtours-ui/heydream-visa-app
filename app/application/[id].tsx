@@ -537,47 +537,73 @@ export default function ApplicationDetailScreen() {
             <Ionicons name="reader" size={16} color={Colors.primary} />
             <ThemedText style={styles.sectionTitle}>Booking Summary</ThemedText>
           </View>
-          <Row label="Applicant" value={`${booking.email}${booking.phone ? " • " + booking.phone : ""}`} />
-          <Row
-            label="Target Date"
-            value={
-              booking.travel_date && booking.travel_date !== "0000-00-00"
-                ? new Date(booking.travel_date).toLocaleDateString(undefined, {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })
-                : "To be determined"
-            }
-          />
-          <Row label="Travelers" value={`${booking.number_of_travelers} Guest(s)`} />
-          <Row label="Application Status" value={getApplicationStatusLabel(booking)} />
-          {!!booking.is_renewal && (
-            <Row label="Current Visa Status" value={getCurrentVisaStatusLabel(booking)} />
-          )}
-          <Row
-            label="Payment Status"
-            value={
-              !!booking.payment_proof && booking.payment_status !== "paid"
-                ? "We're checking your payment"
-                : booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)
-            }
-          />
-          <Row label="Processing" value={booking.package_duration} />
-          <Row
-            label="Total"
-            value={`${booking.currency}${Number(booking.total_amount).toLocaleString()}`}
-            last={!booking.voucher_code}
-          />
-          {!!booking.voucher_code && (
-            <Row
-              label="Voucher Applied"
-              value={`${booking.voucher_name || booking.voucher_code} (${booking.voucher_code})${
-                booking.discount_amount ? ` • -${booking.currency}${Number(booking.discount_amount).toLocaleString()}` : ""
-              }`}
-              last
+          <View style={styles.summaryGrid}>
+            <SummaryTile
+              icon="person-outline"
+              label="Applicant"
+              value={`${booking.email}${booking.phone ? " • " + booking.phone : ""}`}
             />
+            <SummaryTile
+              icon="calendar-outline"
+              label="Target Date"
+              value={
+                booking.travel_date && booking.travel_date !== "0000-00-00"
+                  ? new Date(booking.travel_date).toLocaleDateString(undefined, {
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                    })
+                  : "To be determined"
+              }
+            />
+            <SummaryTile
+              icon="people-outline"
+              label="Travelers"
+              value={`${booking.number_of_travelers} Guest(s)`}
+            />
+            <SummaryTile icon="hourglass-outline" label="Processing" value={booking.package_duration} />
+            <SummaryTile
+              icon="flag-outline"
+              label="Application Status"
+              value={getApplicationStatusLabel(booking)}
+            />
+            {!!booking.is_renewal && (
+              <SummaryTile
+                icon="sync-outline"
+                label="Current Visa Status"
+                value={getCurrentVisaStatusLabel(booking)}
+              />
+            )}
+            <SummaryTile
+              icon="card-outline"
+              label="Payment Status"
+              value={
+                !!booking.payment_proof && booking.payment_status !== "paid"
+                  ? "We're checking your payment"
+                  : booking.payment_status.charAt(0).toUpperCase() + booking.payment_status.slice(1)
+              }
+            />
+          </View>
+
+          {!!booking.voucher_code && (
+            <View style={styles.voucherBanner}>
+              <Ionicons name="pricetag" size={14} color="#15803D" />
+              <ThemedText style={styles.voucherText}>
+                {booking.voucher_name || booking.voucher_code} ({booking.voucher_code}) applied
+                {booking.discount_amount
+                  ? ` • -${booking.currency}${Number(booking.discount_amount).toLocaleString()}`
+                  : ""}
+              </ThemedText>
+            </View>
           )}
+
+          <View style={styles.totalRow}>
+            <ThemedText style={styles.totalLabel}>Total</ThemedText>
+            <ThemedText style={styles.totalValue}>
+              {booking.currency}
+              {Number(booking.total_amount).toLocaleString()}
+            </ThemedText>
+          </View>
         </View>
 
         {!!booking.admin_notes && (
@@ -627,11 +653,24 @@ export default function ApplicationDetailScreen() {
   );
 }
 
-function Row({ label, value, last }: { label: string; value: string; last?: boolean }) {
+function SummaryTile({
+  icon,
+  label,
+  value,
+}: {
+  icon: keyof typeof Ionicons.glyphMap;
+  label: string;
+  value: string;
+}) {
   return (
-    <View style={[styles.row, last && { borderBottomWidth: 0 }]}>
-      <ThemedText style={styles.rowLabel}>{label}</ThemedText>
-      <ThemedText style={styles.rowValue}>{value}</ThemedText>
+    <View style={styles.summaryTile}>
+      <View style={styles.tileHeader}>
+        <Ionicons name={icon} size={13} color={Colors.primary} />
+        <ThemedText style={styles.tileLabel}>{label}</ThemedText>
+      </View>
+      <ThemedText style={styles.tileValue} numberOfLines={2}>
+        {value}
+      </ThemedText>
     </View>
   );
 }
@@ -666,15 +705,40 @@ const styles = StyleSheet.create({
   // alignItems:"center" centered the icon against that inflated box instead
   // of the actual text, throwing the icon visibly below the text baseline.
   sectionTitle: { fontSize: 17, fontWeight: "800", color: Colors.dark },
-  row: {
+  summaryGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  summaryTile: {
+    flexBasis: "47%",
+    flexGrow: 1,
+    backgroundColor: Colors.white,
+    borderRadius: 12,
+    padding: 12,
+  },
+  tileHeader: { flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 5 },
+  tileLabel: { fontSize: 11, color: Colors.text },
+  tileValue: { fontSize: 13.5, fontWeight: "700", color: Colors.dark, lineHeight: 18 },
+  voucherBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#F0FDF4",
+    borderWidth: 1,
+    borderColor: "#BBF7D0",
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 12,
+  },
+  voucherText: { flex: 1, color: "#15803D", fontSize: 12.5, fontWeight: "600" },
+  totalRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E9F0",
+    alignItems: "center",
+    backgroundColor: "#E8F0FE",
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 12,
   },
-  rowLabel: { color: Colors.text },
-  rowValue: { fontWeight: "700", color: Colors.dark, flexShrink: 1, textAlign: "right" },
+  totalLabel: { fontSize: 13, fontWeight: "700", color: Colors.dark },
+  totalValue: { fontSize: 20, fontWeight: "800", color: Colors.primary },
   receiptRow: { flexDirection: "row", alignItems: "center", gap: 12 },
   receiptThumb: { width: 48, height: 48, borderRadius: 8, backgroundColor: Colors.lightGray },
   requirementRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginBottom: 10 },
