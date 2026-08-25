@@ -215,6 +215,10 @@ export default function ApplyScreen() {
       showAlert("Missing info", "Enter your email address.");
       return false;
     }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      showAlert("Invalid email", "Enter a valid email address.");
+      return false;
+    }
     if (!destination.trim()) {
       showAlert("Missing info", "Enter your destination.");
       return false;
@@ -331,10 +335,11 @@ export default function ApplyScreen() {
       }))
     );
 
-    const specialRequestsParts = [
-      `Destination: ${destination.trim()}`,
-      `Embassy: ${embassy}`,
-    ];
+    // Inbound (foreign visitor) bookings have no embassy field at all --
+    // `embassy` stays its unused initial "" for them, which would otherwise
+    // save a literal "Embassy: " into the booking.
+    const specialRequestsParts = [`Destination: ${destination.trim()}`];
+    if (embassy) specialRequestsParts.push(`Embassy: ${embassy}`);
     const otherTravelers = applicants.slice(1).map(formatApplicantName).filter(Boolean);
     if (otherTravelers.length > 0) {
       specialRequestsParts.push(`Other Travelers: ${otherTravelers.join(", ")}`);
@@ -513,19 +518,11 @@ export default function ApplyScreen() {
                 editable={direction !== "inbound"}
                 style={direction === "inbound" ? styles.inputLocked : undefined}
               />
-              {direction === "inbound" ? (
-                // A foreign applicant entering the Philippines wouldn't pick
-                // from a fixed list of PH cities (that's outbound-only --
-                // where a Filipino goes to apply for a FOREIGN visa) -- free
-                // text instead, since HeyDream can't maintain a dropdown of
-                // every country's PH embassy.
-                <LabeledInput
-                  label="PH Embassy/Consulate Used"
-                  placeholder="e.g. Philippine Embassy in your country (if applicable)"
-                  value={embassy}
-                  onChangeText={setEmbassy}
-                />
-              ) : (
+              {/* A foreign applicant entering the Philippines has no
+                  embassy/consulate to pick at all -- that's outbound-only
+                  (where a Filipino goes to apply for a FOREIGN visa through
+                  one of these PH offices). */}
+              {direction !== "inbound" && (
                 <View style={styles.fieldWrap}>
                   <ThemedText style={styles.fieldLabel}>Embassy/Consulate</ThemedText>
                   <View style={styles.embassyRow}>
@@ -796,7 +793,9 @@ export default function ApplyScreen() {
             <View style={styles.section}>
               <ThemedText style={styles.sectionTitle}>Travel Details</ThemedText>
               <Row label="Destination" value={destination} />
-              <Row label="Embassy" value={EMBASSIES.find((e) => e.value === embassy)?.label ?? embassy} />
+              {!!embassy && (
+                <Row label="Embassy" value={EMBASSIES.find((e) => e.value === embassy)?.label ?? embassy} />
+              )}
               <Row label="Travel Date" value={travelDate ? travelDate.toLocaleDateString() : "To be determined"} />
               <Row
                 label="Processing"
