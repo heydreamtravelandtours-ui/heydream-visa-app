@@ -10,6 +10,7 @@
 // by design, matching the "Contact staff for cancellation" note the
 // website itself shows instead of a cancel button.
 
+import { ImageViewerModal } from "@/components/image-viewer-modal";
 import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -261,6 +262,7 @@ export default function ApplicationDetailScreen() {
   const [paymentReference, setPaymentReference] = useState("");
   const [proofUri, setProofUri] = useState<string | null>(null);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const result = await api.getMyVisaBookings();
@@ -435,7 +437,7 @@ export default function ApplicationDetailScreen() {
             </View>
             <Pressable
               style={styles.receiptRow}
-              onPress={() => paymentProofUrl && Linking.openURL(paymentProofUrl)}
+              onPress={() => paymentProofUrl && setViewerUri(paymentProofUrl)}
             >
               {paymentProofUrl && (
                 <Image source={{ uri: paymentProofUrl }} style={styles.receiptThumb} contentFit="cover" />
@@ -649,6 +651,8 @@ export default function ApplicationDetailScreen() {
           <ThemedText style={styles.cancelNote}>Contact staff for cancellation</ThemedText>
         </View>
       </ScrollView>
+
+      <ImageViewerModal uri={viewerUri} onClose={() => setViewerUri(null)} />
     </ThemedView>
   );
 }

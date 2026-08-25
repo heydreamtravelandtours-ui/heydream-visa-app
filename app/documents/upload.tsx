@@ -9,6 +9,7 @@
 // visa/api/upload-api.php's own `list` action, the same one profile.php's
 // modal calls, instead of re-deriving that state client-side.
 
+import { ImageViewerModal } from "@/components/image-viewer-modal";
 import { ScreenHeader } from "@/components/screen-header";
 import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
@@ -19,10 +20,12 @@ import { appendFileToFormData } from "@/api/form-file";
 import { showAlert, showConfirm } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
+import * as WebBrowser from "expo-web-browser";
 import { useCallback, useEffect, useState } from "react";
-import { ActivityIndicator, Linking, Pressable, ScrollView, StyleSheet, View } from "react-native";
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 interface UploadedDoc {
   id: number;
@@ -55,6 +58,7 @@ export default function UploadDocumentsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [viewerUri, setViewerUri] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     const [docsResult, bookingsResult] = await Promise.all([
@@ -130,14 +134,10 @@ export default function UploadDocumentsScreen() {
     }))
     .filter((g) => missingSlots.some((s) => s.label === g.label));
 
-  const handlePick = async (slot: DocSlot) => {
-    const picked = await DocumentPicker.getDocumentAsync({
-      type: ["application/pdf", "image/*"],
-      copyToCacheDirectory: true,
-    });
-    if (picked.canceled || !picked.assets?.[0]) return;
-
-    const asset = picked.assets[0];
+  const uploadPicked = async (
+    slot: DocSlot,
+    file: { uri: string; name: string; type: string }
+  ) => {
     setUploadingKey(slot.key);
 
     const form = new FormData();
@@ -145,11 +145,7 @@ export default function UploadDocumentsScreen() {
     form.append("booking_number", String(bookingNumber));
     form.append("document_label", slot.label);
     form.append("traveler_index", String(slot.travelerIndex || 1));
-    await appendFileToFormData(form, "document", {
-      uri: asset.uri,
-      name: asset.name,
-      type: asset.mimeType || "application/octet-stream",
-    });
+    await appendFileToFormData(form, "document", file);
 
     const result = await api.uploadDocument(form);
     setUploadingKey(null);
@@ -158,6 +154,84 @@ export default function UploadDocumentsScreen() {
       await load();
     } else {
       showAlert("Upload Failed", result.message || "Please try again.");
+    }
+  };
+
+  const captureFromCamera = async (slot: DocSlot) => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      showAlert("Permission needed", "Allow camera access to take a photo of your document.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    await uploadPicked(slot, {
+      uri: asset.uri,
+      name: asset.fileName || `photo-${Date.now()}.jpg`,
+      type: asset.mimeType || "image/jpeg",
+    });
+  };
+
+  const pickFromLibrary = async (slot: DocSlot) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showAlert("Permission needed", "Allow photo library access to attach an image.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    await uploadPicked(slot, {
+      uri: asset.uri,
+      name: asset.fileName || `photo-${Date.now()}.jpg`,
+      type: asset.mimeType || "image/jpeg",
+    });
+  };
+
+  const pickFromFiles = async (slot: DocSlot) => {
+    const picked = await DocumentPicker.getDocumentAsync({
+      type: ["application/pdf", "image/*"],
+      copyToCacheDirectory: true,
+    });
+    if (picked.canceled || !picked.assets?.[0]) return;
+    const asset = picked.assets[0];
+    await uploadPicked(slot, {
+      uri: asset.uri,
+      name: asset.name,
+      type: asset.mimeType || "application/octet-stream",
+    });
+  };
+
+  // A camera-first choice (Take Photo / Choose from Gallery / Choose File)
+  // instead of dropping straight into the system file picker -- for a
+  // passport/ID photo, most people would otherwise have to leave the app,
+  // open their camera app, save the shot, then browse back to it.
+  const chooseSource = (slot: DocSlot) => {
+    showConfirm(
+      travelerCount > 1 ? `${slot.label} — ${slot.travelerLabel}` : slot.label,
+      "How would you like to add this document?",
+      [
+        { text: "Take Photo", onPress: () => captureFromCamera(slot) },
+        { text: "Choose from Gallery", onPress: () => pickFromLibrary(slot) },
+        { text: "Choose File (PDF/Image)", onPress: () => pickFromFiles(slot) },
+        { text: "Cancel", style: "cancel" },
+      ]
+    );
+  };
+
+  const openDoc = async (doc: UploadedDoc) => {
+    const url = `${API_BASE_URL}/${doc.file_path}`;
+    if (/\.pdf$/i.test(doc.file_name)) {
+      await WebBrowser.openBrowserAsync(url);
+    } else {
+      setViewerUri(url);
     }
   };
 
@@ -265,7 +339,7 @@ export default function UploadDocumentsScreen() {
                   </View>
                   <Pressable
                     style={[styles.docActionBtn, isRejected ? styles.docActionBtnRejected : styles.docActionBtnOk]}
-                    onPress={() => Linking.openURL(`${API_BASE_URL}/${doc.file_path}`)}
+                    onPress={() => openDoc(doc)}
                   >
                     <Ionicons name="eye" size={13} color={isRejected ? "#B91C1C" : "#15803D"} />
                     <ThemedText style={[styles.docActionText, { color: isRejected ? "#B91C1C" : "#15803D" }]}>
@@ -328,18 +402,27 @@ export default function UploadDocumentsScreen() {
                     return (
                       <Pressable
                         key={slot.key}
-                        style={styles.pickRow}
-                        onPress={() => handlePick(slot)}
+                        style={({ pressed }) => [styles.pickCard, pressed && styles.pickCardPressed]}
+                        onPress={() => chooseSource(slot)}
                         disabled={isUploading}
                       >
-                        <Ionicons name="cloud-upload-outline" size={18} color={Colors.primary} />
-                        <ThemedText style={{ flex: 1 }}>
-                          {travelerCount > 1 ? slot.travelerLabel : label}
-                        </ThemedText>
-                        {isUploading ? (
-                          <ActivityIndicator color={Colors.primary} size="small" />
-                        ) : (
-                          <ThemedText style={styles.pickRowAction}>Choose File</ThemedText>
+                        <View style={styles.pickIconWrap}>
+                          {isUploading ? (
+                            <ActivityIndicator color={Colors.primary} size="small" />
+                          ) : (
+                            <Ionicons name="camera-outline" size={19} color={Colors.primary} />
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <ThemedText style={styles.pickCardLabel}>
+                            {travelerCount > 1 ? slot.travelerLabel : label}
+                          </ThemedText>
+                          <ThemedText style={styles.pickCardHint}>
+                            {isUploading ? "Uploading…" : "Tap to take a photo or choose a file"}
+                          </ThemedText>
+                        </View>
+                        {!isUploading && (
+                          <Ionicons name="add-circle" size={22} color={Colors.primary} />
                         )}
                       </Pressable>
                     );
@@ -356,6 +439,8 @@ export default function UploadDocumentsScreen() {
           <ThemedText style={styles.doneButtonText}>Done</ThemedText>
         </Pressable>
       </ScrollView>
+
+      <ImageViewerModal uri={viewerUri} onClose={() => setViewerUri(null)} />
     </ThemedView>
   );
 }
@@ -440,15 +525,29 @@ const styles = StyleSheet.create({
     letterSpacing: 0.3,
     marginTop: 10,
   },
-  pickRow: {
+  pickCard: {
     flexDirection: "row",
     alignItems: "center",
-    borderBottomWidth: 1,
-    borderBottomColor: Colors.lightGray,
-    paddingVertical: 12,
     gap: 12,
+    backgroundColor: Colors.background,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderStyle: "dashed",
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
   },
-  pickRowAction: { color: Colors.primary, fontWeight: "700", fontSize: 13 },
+  pickCardPressed: { opacity: 0.7 },
+  pickIconWrap: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  pickCardLabel: { fontSize: 13.5, fontWeight: "700", color: Colors.dark },
+  pickCardHint: { fontSize: 11.5, color: Colors.text, marginTop: 1 },
   doneButton: {
     marginTop: 8,
     backgroundColor: Colors.gold,
