@@ -21,6 +21,7 @@ export interface VisaUser {
   dob?: string;
   country?: string;
   phone?: string;
+  profile_pic?: string;
 }
 
 interface AuthContextType {

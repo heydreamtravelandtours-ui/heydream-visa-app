@@ -202,6 +202,10 @@ export function getProfile() {
   return apiGet(API_ENDPOINTS.GET_PROFILE);
 }
 
+export function uploadProfilePhoto(form: FormData) {
+  return apiPostForm(API_ENDPOINTS.UPLOAD_PROFILE_PHOTO, form);
+}
+
 export function updateProfile(payload: {
   title: string;
   full_name: string;

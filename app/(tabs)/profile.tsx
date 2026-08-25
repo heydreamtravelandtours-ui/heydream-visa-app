@@ -7,10 +7,12 @@ import { useAuth } from "@/contexts/auth-context";
 import { useUnreadCount } from "@/hooks/use-unread-count";
 import { showConfirm } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
+import { Image } from "expo-image";
 import { useFocusEffect, useRouter } from "expo-router";
 import { useCallback, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, View } from "react-native";
 import { SafeAreaView, useSafeAreaInsets } from "react-native-safe-area-context";
+import { API_BASE_URL } from "@/api/config";
 import * as api from "@/api/client";
 
 function initials(name: string) {
@@ -25,7 +27,7 @@ function initials(name: string) {
 
 export default function ProfileScreen() {
   const router = useRouter();
-  const { user, logout } = useAuth();
+  const { user, logout, updateUser } = useAuth();
   const { unreadCount } = useUnreadCount();
   const insets = useSafeAreaInsets();
   const [hasPassword, setHasPassword] = useState(true);
@@ -34,9 +36,15 @@ export default function ProfileScreen() {
     useCallback(() => {
       if (!user) return;
       api.getProfile().then((result) => {
-        if (result.success) setHasPassword(!!result.data.has_password);
+        if (result.success) {
+          setHasPassword(!!result.data.has_password);
+          if (result.data.profile_pic !== user.profile_pic) {
+            updateUser({ profile_pic: result.data.profile_pic || "" });
+          }
+        }
       });
-    }, [user])
+      // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [user?.id])
   );
 
   const handleLogout = () => {
@@ -59,7 +67,11 @@ export default function ProfileScreen() {
         {user ? (
           <>
             <View style={styles.avatar}>
-              <ThemedText style={styles.avatarText}>{initials(user.full_name)}</ThemedText>
+              {user.profile_pic ? (
+                <Image source={{ uri: `${API_BASE_URL}/${user.profile_pic}` }} style={styles.avatarImage} />
+              ) : (
+                <ThemedText style={styles.avatarText}>{initials(user.full_name)}</ThemedText>
+              )}
             </View>
             <ThemedText style={styles.name}>{user.full_name}</ThemedText>
             <ThemedText style={styles.email}>{user.email}</ThemedText>
@@ -170,7 +182,9 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 3,
     borderColor: "rgba(255,255,255,0.3)",
+    overflow: "hidden",
   },
+  avatarImage: { width: 72, height: 72 },
   avatarText: { color: Colors.white, fontSize: 24, fontWeight: "800" },
   name: { color: Colors.white, fontSize: 18, fontWeight: "800" },
   email: { color: "rgba(255,255,255,0.8)", fontSize: 13, marginTop: 4 },
