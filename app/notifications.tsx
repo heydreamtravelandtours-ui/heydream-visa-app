@@ -174,9 +174,7 @@ export default function NotificationsScreen() {
                 <ThemedText style={[styles.cardTitle, isBad(n.type) && styles.cardTitleBad]}>
                   {n.title}
                 </ThemedText>
-                <ThemedText style={styles.cardMessage} numberOfLines={3}>
-                  {n.message}
-                </ThemedText>
+                <ThemedText style={styles.cardMessage}>{n.message}</ThemedText>
               </View>
               {!n.is_read && (
                 <View style={[styles.unreadDot, isBad(n.type) && styles.unreadDotBad]} />
