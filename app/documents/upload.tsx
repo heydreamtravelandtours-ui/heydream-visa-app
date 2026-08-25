@@ -138,6 +138,11 @@ export default function UploadDocumentsScreen() {
     slot: DocSlot,
     file: { uri: string; name: string; type: string }
   ) => {
+    // Captured before the upload, not after -- load() below will refresh
+    // `documents` with the new file already in it, which would make
+    // docForSlot(slot) resolve to the file we just added instead of the
+    // one it's replacing.
+    const existingDoc = docForSlot(slot);
     setUploadingKey(slot.key);
 
     const form = new FormData();
@@ -148,13 +153,19 @@ export default function UploadDocumentsScreen() {
     await appendFileToFormData(form, "document", file);
 
     const result = await api.uploadDocument(form);
-    setUploadingKey(null);
 
     if (result.success) {
+      // Only auto-remove the old file once the new one is confirmed on the
+      // server -- if the new upload had failed instead, the existing valid
+      // document must stay untouched rather than leaving the slot empty.
+      if (existingDoc && existingDoc.status !== "rejected") {
+        await api.deleteDocument(existingDoc.id, String(bookingNumber));
+      }
       await load();
     } else {
       showAlert("Upload Failed", result.message || "Please try again.");
     }
+    setUploadingKey(null);
   };
 
   const captureFromCamera = async (slot: DocSlot) => {
@@ -213,7 +224,7 @@ export default function UploadDocumentsScreen() {
   // instead of dropping straight into the system file picker -- for a
   // passport/ID photo, most people would otherwise have to leave the app,
   // open their camera app, save the shot, then browse back to it.
-  const chooseSource = (slot: DocSlot) => {
+  const openSourceMenu = (slot: DocSlot) => {
     showConfirm(
       travelerCount > 1 ? `${slot.label} — ${slot.travelerLabel}` : slot.label,
       "How would you like to add this document?",
@@ -224,6 +235,29 @@ export default function UploadDocumentsScreen() {
         { text: "Cancel", style: "cancel" },
       ]
     );
+  };
+
+  // A slot that already has a non-rejected file on it is presumably fine
+  // as-is -- picking a new file for it isn't "add", it's "replace", so
+  // that needs its own explicit confirmation before the source menu even
+  // opens, rather than silently swapping out a file that may already have
+  // been reviewed.
+  const chooseSource = (slot: DocSlot) => {
+    const existingDoc = docForSlot(slot);
+    if (existingDoc && existingDoc.status !== "rejected") {
+      showConfirm(
+        "Replace Document?",
+        `A file is already uploaded for ${
+          travelerCount > 1 ? `${slot.label} — ${slot.travelerLabel}` : slot.label
+        }. Uploading a new one will replace it.`,
+        [
+          { text: "Cancel", style: "cancel" },
+          { text: "Continue", onPress: () => openSourceMenu(slot) },
+        ]
+      );
+    } else {
+      openSourceMenu(slot);
+    }
   };
 
   const openDoc = async (doc: UploadedDoc) => {
@@ -399,18 +433,31 @@ export default function UploadDocumentsScreen() {
                   .filter((s) => s.label === label)
                   .map((slot) => {
                     const isUploading = uploadingKey === slot.key;
+                    const existingDoc = docForSlot(slot);
+                    const isRejected = existingDoc?.status === "rejected";
+                    const isSatisfied = !!existingDoc && !isRejected;
                     return (
                       <Pressable
                         key={slot.key}
-                        style={({ pressed }) => [styles.pickCard, pressed && styles.pickCardPressed]}
+                        style={({ pressed }) => [
+                          styles.pickCard,
+                          isSatisfied && styles.pickCardSatisfied,
+                          pressed && styles.pickCardPressed,
+                        ]}
                         onPress={() => chooseSource(slot)}
                         disabled={isUploading}
                       >
-                        <View style={styles.pickIconWrap}>
+                        <View
+                          style={[styles.pickIconWrap, isSatisfied && styles.pickIconWrapSatisfied]}
+                        >
                           {isUploading ? (
                             <ActivityIndicator color={Colors.primary} size="small" />
                           ) : (
-                            <Ionicons name="camera-outline" size={19} color={Colors.primary} />
+                            <Ionicons
+                              name={isSatisfied ? "checkmark-circle" : "camera-outline"}
+                              size={19}
+                              color={isSatisfied ? "#16A34A" : Colors.primary}
+                            />
                           )}
                         </View>
                         <View style={{ flex: 1 }}>
@@ -418,11 +465,21 @@ export default function UploadDocumentsScreen() {
                             {travelerCount > 1 ? slot.travelerLabel : label}
                           </ThemedText>
                           <ThemedText style={styles.pickCardHint}>
-                            {isUploading ? "Uploading…" : "Tap to take a photo or choose a file"}
+                            {isUploading
+                              ? "Uploading…"
+                              : isRejected
+                                ? "Rejected — tap to re-upload"
+                                : isSatisfied
+                                  ? "Uploaded — tap to replace"
+                                  : "Tap to take a photo or choose a file"}
                           </ThemedText>
                         </View>
                         {!isUploading && (
-                          <Ionicons name="add-circle" size={22} color={Colors.primary} />
+                          <Ionicons
+                            name={isSatisfied ? "sync-outline" : "add-circle"}
+                            size={20}
+                            color={isSatisfied ? Colors.text : Colors.primary}
+                          />
                         )}
                       </Pressable>
                     );
@@ -538,6 +595,7 @@ const styles = StyleSheet.create({
     marginTop: 8,
   },
   pickCardPressed: { opacity: 0.7 },
+  pickCardSatisfied: { borderStyle: "solid", borderColor: "#BBF7D0", backgroundColor: "#F0FDF4" },
   pickIconWrap: {
     width: 36,
     height: 36,
@@ -546,6 +604,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
+  pickIconWrapSatisfied: { backgroundColor: "#DCFCE7" },
   pickCardLabel: { fontSize: 13.5, fontWeight: "700", color: Colors.dark },
   pickCardHint: { fontSize: 11.5, color: Colors.text, marginTop: 1 },
   doneButton: {

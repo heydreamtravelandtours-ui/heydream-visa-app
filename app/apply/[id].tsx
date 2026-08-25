@@ -25,9 +25,10 @@ import { Colors } from "@/constants/theme";
 import { useAuth } from "@/contexts/auth-context";
 import * as api from "@/api/client";
 import { appendFileToFormData } from "@/api/form-file";
-import { showAlert } from "@/utils/cross-alert";
+import { showAlert, showConfirm } from "@/utils/cross-alert";
 import { Ionicons } from "@expo/vector-icons";
 import * as DocumentPicker from "expo-document-picker";
+import * as ImagePicker from "expo-image-picker";
 import { LinearGradient } from "expo-linear-gradient";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -236,18 +237,78 @@ export default function ApplyScreen() {
     return true;
   };
 
-  const pickDocument = async (applicantIdx: number, label: string) => {
+  const stageFile = (
+    applicantIdx: number,
+    label: string,
+    file: { uri: string; name: string; mimeType: string }
+  ) => {
+    const key = `${applicantIdx}_${label}`;
+    setStagedFiles((prev) => ({ ...prev, [key]: file }));
+  };
+
+  const captureFromCamera = async (applicantIdx: number, label: string) => {
+    const permission = await ImagePicker.requestCameraPermissionsAsync();
+    if (!permission.granted) {
+      showAlert("Permission needed", "Allow camera access to take a photo of your document.");
+      return;
+    }
+    const result = await ImagePicker.launchCameraAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    stageFile(applicantIdx, label, {
+      uri: asset.uri,
+      name: asset.fileName || `photo-${Date.now()}.jpg`,
+      mimeType: asset.mimeType || "image/jpeg",
+    });
+  };
+
+  const pickFromLibrary = async (applicantIdx: number, label: string) => {
+    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!permission.granted) {
+      showAlert("Permission needed", "Allow photo library access to attach an image.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets?.[0]) return;
+    const asset = result.assets[0];
+    stageFile(applicantIdx, label, {
+      uri: asset.uri,
+      name: asset.fileName || `photo-${Date.now()}.jpg`,
+      mimeType: asset.mimeType || "image/jpeg",
+    });
+  };
+
+  const pickFromFiles = async (applicantIdx: number, label: string) => {
     const picked = await DocumentPicker.getDocumentAsync({
       type: ["application/pdf", "image/*"],
       copyToCacheDirectory: true,
     });
     if (picked.canceled || !picked.assets?.[0]) return;
     const asset = picked.assets[0];
-    const key = `${applicantIdx}_${label}`;
-    setStagedFiles((prev) => ({
-      ...prev,
-      [key]: { uri: asset.uri, name: asset.name, mimeType: asset.mimeType || "application/octet-stream" },
-    }));
+    stageFile(applicantIdx, label, {
+      uri: asset.uri,
+      name: asset.name,
+      mimeType: asset.mimeType || "application/octet-stream",
+    });
+  };
+
+  // Same camera-first choice as the post-booking Documents screen
+  // (app/documents/upload.tsx) -- dropping straight into the system file
+  // picker meant leaving the app to take a photo first, then browsing back
+  // to find it.
+  const chooseSource = (applicantIdx: number, label: string) => {
+    showConfirm(label, "How would you like to add this document?", [
+      { text: "Take Photo", onPress: () => captureFromCamera(applicantIdx, label) },
+      { text: "Choose from Gallery", onPress: () => pickFromLibrary(applicantIdx, label) },
+      { text: "Choose File (PDF/Image)", onPress: () => pickFromFiles(applicantIdx, label) },
+      { text: "Cancel", style: "cancel" },
+    ]);
   };
 
   const handleSubmit = async () => {
@@ -672,20 +733,28 @@ export default function ApplyScreen() {
                     return (
                       <Pressable
                         key={label}
-                        style={styles.docPickRow}
-                        onPress={() => pickDocument(idx, label)}
+                        style={({ pressed }) => [styles.docPickRow, pressed && { opacity: 0.7 }]}
+                        onPress={() => chooseSource(idx, label)}
                       >
-                        <Ionicons
-                          name={staged ? "checkmark-circle" : "cloud-upload-outline"}
-                          size={18}
-                          color={staged ? "#2E7D32" : Colors.primary}
-                        />
+                        <View
+                          style={[
+                            styles.docPickIconWrap,
+                            staged && { backgroundColor: "#E8F5E9" },
+                          ]}
+                        >
+                          <Ionicons
+                            name={staged ? "checkmark-circle" : "camera-outline"}
+                            size={18}
+                            color={staged ? "#2E7D32" : Colors.primary}
+                          />
+                        </View>
                         <View style={{ flex: 1 }}>
                           <ThemedText style={styles.docPickLabel}>{label}</ThemedText>
                           <ThemedText style={styles.docPickFileName} numberOfLines={1}>
-                            {staged ? staged.name : "No file selected"}
+                            {staged ? staged.name : "Tap to take a photo or choose a file"}
                           </ThemedText>
                         </View>
+                        {!staged && <Ionicons name="add-circle" size={20} color={Colors.primary} />}
                       </Pressable>
                     );
                   })}
@@ -960,9 +1029,18 @@ const styles = StyleSheet.create({
     gap: 10,
     borderWidth: 1,
     borderColor: "#e2e8f0",
+    borderStyle: "dashed",
     borderRadius: 12,
     padding: 12,
     marginBottom: 8,
+  },
+  docPickIconWrap: {
+    width: 34,
+    height: 34,
+    borderRadius: 17,
+    backgroundColor: "#EFF6FF",
+    alignItems: "center",
+    justifyContent: "center",
   },
   docPickLabel: { fontWeight: "600", color: Colors.dark, fontSize: 13.5 },
   docPickFileName: { color: Colors.text, fontSize: 11.5, marginTop: 2 },
