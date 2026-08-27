@@ -1,25 +1,20 @@
 // components/chat-assistant.tsx
 // Floating in-app help assistant, mounted once in app/_layout.tsx so it
 // rides on top of every screen the same way chatbot_widget.php's bubble
-// does on the website. Deliberately has NO text input: the user only ever
-// taps curated question chips (constants/assistant-knowledge.ts), so the
-// assistant can't be handed a question it wasn't built to answer. The one
-// networked path is "Talk to a live agent", which reuses the website's
-// ai_chat.php / get_chat_updates.php session + reply-polling so an agent
-// picks it up in the same admin panel list as a website chat.
+// does on the website. The user can type a question freely OR tap a
+// suggested one; every message goes to the same ai_chat.php the website
+// chatbot uses (source: "visa"), which already handles smart answers, an
+// offline fallback, and steering off-topic / unanswerable ("stupid")
+// questions back to something useful. Admin replies from a live-agent
+// handoff are polled from get_chat_updates.php, same as the website widget.
 
 import { ThemedText } from "@/components/themed-text";
 import { VISA_WEB_BASE_URL } from "@/api/config";
 import * as api from "@/api/client";
+import type { AssistantHistoryTurn } from "@/api/client";
 import { useAuth } from "@/contexts/auth-context";
 import * as secureStorage from "@/api/secure-storage";
-import {
-  STARTER_TOPIC_IDS,
-  SUPPORT_EMAIL,
-  SUPPORT_PHONE,
-  TOPICS_BY_ID,
-  type AssistantAnswer,
-} from "@/constants/assistant-knowledge";
+import { STARTER_QUESTIONS, SUPPORT_EMAIL, SUPPORT_PHONE } from "@/constants/assistant-knowledge";
 import { Colors } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
 import { LinearGradient } from "expo-linear-gradient";
@@ -30,17 +25,20 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Animated,
   Easing,
+  Keyboard,
   Linking,
   Platform,
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 const SESSION_KEY = "heydream_visa_assistant_session";
 const POLL_MS = 4000;
+const HISTORY_LIMIT = 12;
 
 // Screens where a floating helper would get in the way (a bubble sitting on
 // top of form fields), duplicate an existing chat surface, or sit over the
@@ -60,16 +58,13 @@ const HIDDEN_PREFIXES = [
 ];
 const TAB_PATHS = ["/", "/applications", "/profile"];
 
-type ChipTone = "default" | "agent" | "reset";
-interface Chip {
-  key: string;
+interface Link {
   label: string;
-  tone?: ChipTone;
-  onPress: () => void;
+  url: string;
 }
 
 type Message =
-  | { id: string; kind: "bot"; text: string; answer?: AssistantAnswer }
+  | { id: string; kind: "bot"; text: string; links?: Link[] }
   | { id: string; kind: "user"; text: string }
   | { id: string; kind: "agent"; text: string }
   | { id: string; kind: "note"; text: string };
@@ -95,6 +90,26 @@ function htmlToText(s?: string): string {
     .trim();
 }
 
+// Pull <a href> and [label](url) out into tappable link buttons, leaving
+// just their label text inline (RN <Text> can't render either form).
+function parseReply(html?: string): { text: string; links: Link[] } {
+  if (!html) return { text: "", links: [] };
+  const links: Link[] = [];
+  let s = html.replace(
+    /<a\b[^>]*?href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi,
+    (_m, url: string, inner: string) => {
+      const label = inner.replace(/<[^>]+>/g, "").trim();
+      links.push({ label: label || url, url });
+      return label;
+    }
+  );
+  s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, (_m, label: string, url: string) => {
+    links.push({ label, url });
+    return label;
+  });
+  return { text: htmlToText(s), links };
+}
+
 export function ChatAssistant() {
   const pathname = usePathname();
   const router = useRouter();
@@ -105,15 +120,16 @@ export function ChatAssistant() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [started, setStarted] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [chips, setChips] = useState<Chip[]>([]);
-  const [agentMode, setAgentMode] = useState(false);
-  const [agentJoined, setAgentJoined] = useState(false);
+  const [suggestions, setSuggestions] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [input, setInput] = useState("");
+  const [kb, setKb] = useState(0);
 
   const scrollRef = useRef<ScrollView>(null);
   const sessionRef = useRef<string | null>(null);
   const lastAgentIdRef = useRef(0);
   const agentJoinedRef = useRef(false);
+  const historyRef = useRef<AssistantHistoryTurn[]>([]);
   const anim = useRef(new Animated.Value(0)).current;
 
   const hidden = useMemo(
@@ -134,21 +150,35 @@ export function ChatAssistant() {
       easing: Easing.out(Easing.cubic),
       useNativeDriver: true,
     }).start();
-    if (!open) setMenuOpen(false);
+    if (!open) {
+      setMenuOpen(false);
+      Keyboard.dismiss();
+    }
   }, [open, anim]);
+
+  // iOS doesn't resize the window for the keyboard, so lift the panel by its
+  // height. Android's adjustResize already shrinks the window, which keeps a
+  // bottom-anchored absolute panel above the keyboard on its own.
+  useEffect(() => {
+    if (Platform.OS !== "ios") return;
+    const show = Keyboard.addListener("keyboardWillShow", (e) => setKb(e.endCoordinates.height));
+    const hide = Keyboard.addListener("keyboardWillHide", () => setKb(0));
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
 
   useEffect(() => {
     const t = setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 60);
     return () => clearTimeout(t);
-  }, [messages, chips]);
+  }, [messages, suggestions, kb]);
 
-  // ---------- helpers (plain closures -- always see current state) ----------
-  const pushBot = (text: string, answer?: AssistantAnswer) =>
-    setMessages((prev) => [...prev, { id: nextId(), kind: "bot", text, answer }]);
+  // ---------- helpers ----------
+  const pushBot = (text: string, links?: Link[]) =>
+    setMessages((prev) => [...prev, { id: nextId(), kind: "bot", text, links }]);
   const pushUser = (text: string) =>
     setMessages((prev) => [...prev, { id: nextId(), kind: "user", text }]);
-  const pushNote = (text: string) =>
-    setMessages((prev) => [...prev, { id: nextId(), kind: "note", text }]);
 
   async function ensureSession() {
     if (sessionRef.current) return sessionRef.current;
@@ -161,39 +191,25 @@ export function ChatAssistant() {
     return s;
   }
 
-  function topicChips(ids: string[]): Chip[] {
-    const list: Chip[] = ids
-      .map((id) => TOPICS_BY_ID[id])
-      .filter(Boolean)
-      .map((t) => ({ key: t.id, label: t.question, onPress: () => handleTopic(t.id) }));
-    if (!ids.includes("live-agent")) {
-      list.push({ key: "live-agent", label: "Talk to a live agent", tone: "agent", onPress: startLiveAgent });
-    }
-    list.push({ key: "reset", label: "Back to start", tone: "reset", onPress: backToStart });
-    return list;
-  }
-
-  function backToStart() {
-    setAgentMode(false);
-    pushBot(firstName ? `Anything else I can help with, ${firstName}?` : "What else can I help you with?");
-    setChips(topicChips(STARTER_TOPIC_IDS));
-  }
-
-  function handleTopic(id: string) {
-    const topic = TOPICS_BY_ID[id];
-    if (!topic) return;
-    pushUser(topic.question);
-    pushBot(topic.answer.body, topic.answer);
-    setChips(topicChips(topic.answer.followUps ?? STARTER_TOPIC_IDS));
-  }
+  const customerName = user?.full_name || "HeyDream Visa app user";
+  const customerEmail = user?.email || "";
 
   function greet() {
     if (started) return;
     setStarted(true);
     pushBot(
-      `Hi${firstName ? ` ${firstName}` : ""}! I'm the HeyDream Visa assistant. Pick a question below and I'll walk you through it.`
+      `Hi${firstName ? ` ${firstName}` : ""}! I'm the HeyDream Visa assistant. Ask me anything about visas, documents, payment or tracking — or tap a question below.`
     );
-    setChips(topicChips(STARTER_TOPIC_IDS));
+    setSuggestions(STARTER_QUESTIONS);
+    // Register the session with the backend so it shows up for agents, and
+    // anchor polling past the logged greeting.
+    ensureSession().then((session) => {
+      api
+        .sendAssistantMessage({ message: "[GREETING]", session_id: session, customer_name: customerName, customer_email: customerEmail })
+        .then((res) => {
+          if (res?.last_msg_id) lastAgentIdRef.current = Math.max(lastAgentIdRef.current, res.last_msg_id);
+        });
+    });
   }
 
   function openPanel() {
@@ -201,105 +217,81 @@ export function ChatAssistant() {
     if (!started) setTimeout(greet, 260);
   }
 
-  // ---------- live agent (networked) ----------
-  function applyBackendReply(reply?: string, suggestions?: string[]) {
-    const text = htmlToText(reply);
-    if (text) pushBot(text);
-
-    const netChips: Chip[] = (suggestions ?? []).map((s, i) => ({
-      key: `net_${i}_${s}`,
-      label: s,
-      onPress: () => sendToBackend(s),
-    }));
-
-    if (/phone number/i.test(reply ?? "")) {
-      const phone = (user?.phone ?? "").trim();
-      if (phone) {
-        netChips.unshift({
-          key: "phone_confirm",
-          label: `Call me at ${phone}`,
-          tone: "agent",
-          onPress: () =>
-            sendToBackend(`${phone.replace(/\s+/g, "")} - Live agent requested from the HeyDream Visa app`),
-        });
-      } else {
-        pushNote(
-          `Add your phone number in Profile → Edit Profile so an agent can call you, or reach us now at ${SUPPORT_PHONE}.`
-        );
-      }
-    }
-
-    netChips.push({ key: "agent_done", label: "Back to questions", tone: "reset", onPress: backToStart });
-    setChips(netChips);
-  }
-
-  function agentUnreachable(retry: () => void) {
-    pushBot(
-      `I couldn't reach an agent just now. Please call ${SUPPORT_PHONE} or email ${SUPPORT_EMAIL}, or use Contact Support from your Profile.`
-    );
-    setChips([
-      { key: "retry", label: "Try again", tone: "agent", onPress: retry },
-      { key: "reset", label: "Back to start", tone: "reset", onPress: backToStart },
-    ]);
-  }
-
-  async function sendToBackend(message: string) {
-    if (busy) return;
-    setBusy(true);
+  async function send(raw: string) {
+    const message = raw.trim();
+    if (!message || busy) return;
+    setInput("");
+    setMenuOpen(false);
+    setSuggestions([]);
     pushUser(message);
-    setChips([]);
+    historyRef.current.push({ role: "user", parts: [{ text: message }] });
+    setBusy(true);
+
     const session = await ensureSession();
     const res = await api.sendAssistantMessage({
       message,
       session_id: session,
-      customer_name: user?.full_name || "HeyDream Visa app user",
-      customer_email: user?.email || "",
+      customer_name: customerName,
+      customer_email: customerEmail,
+      history: historyRef.current.slice(-HISTORY_LIMIT),
     });
-    setBusy(false);
-    if (!res || (!res.reply && !res.suggestions)) {
-      agentUnreachable(() => sendToBackend(message));
+
+    // ai_chat.php couldn't reach Gemini itself -- finish the call here.
+    if (res?.status === "needs_client_call" && res.api_url && res.payload) {
+      const direct = await api.callGeminiDirect(res.api_url, res.payload);
+      setBusy(false);
+      if (direct) {
+        const parsed = parseReply(direct);
+        pushBot(parsed.text || direct, parsed.links);
+        historyRef.current.push({ role: "model", parts: [{ text: parsed.text || direct }] });
+        setSuggestions(["Talk to a live agent"]);
+        api
+          .logAssistantReply({ message, ai_reply: direct, session_id: session, customer_name: customerName, customer_email: customerEmail })
+          .then((r) => {
+            if (r?.last_msg_id) lastAgentIdRef.current = Math.max(lastAgentIdRef.current, r.last_msg_id);
+          });
+        return;
+      }
+      fallbackReply();
       return;
     }
-    applyBackendReply(res.reply, res.suggestions);
-  }
 
-  async function startLiveAgent() {
-    if (busy) return;
-    setMenuOpen(false);
-    setAgentMode(true);
-    setAgentJoined(false);
-    agentJoinedRef.current = false;
-    pushUser("I'd like to talk to a live agent");
-    setChips([]);
-    setBusy(true);
-    const session = await ensureSession();
-    // Anchor polling past anything already logged on a reused session id so
-    // only replies from here on surface.
-    const init = await api.getAssistantUpdates(session, 0);
-    lastAgentIdRef.current = init.messages.reduce((max, m) => Math.max(max, m.id), 0);
-    const res = await api.sendAssistantMessage({
-      message: "[REQUEST_LIVE_AGENT]",
-      session_id: session,
-      customer_name: user?.full_name || "HeyDream Visa app user",
-      customer_email: user?.email || "",
-    });
     setBusy(false);
-    if (!res || (!res.reply && !res.suggestions)) {
-      agentUnreachable(startLiveAgent);
+
+    if (!res || (!res.reply && !(res.suggestions && res.suggestions.length))) {
+      fallbackReply();
       return;
     }
-    applyBackendReply(res.reply, res.suggestions);
+
+    const { text, links } = parseReply(res.reply);
+    if (text) {
+      pushBot(text, links);
+      historyRef.current.push({ role: "model", parts: [{ text }] });
+    }
+    const next = [...(res.suggestions ?? [])];
+    if (!next.some((s) => /live agent/i.test(s))) next.push("Talk to a live agent");
+    setSuggestions(next);
   }
 
-  // Poll for agent replies while the panel is open and a handoff is active.
+  // A typed question we couldn't answer (blank/offline) doesn't dead-end --
+  // point the user at the live team and a couple of things that do work.
+  function fallbackReply() {
+    pushBot(
+      `I'm having trouble answering that right now. You can call ${SUPPORT_PHONE}, email ${SUPPORT_EMAIL}, or talk to a live agent.`
+    );
+    setSuggestions(["Talk to a live agent", "How do I apply for a visa?", "What documents do I need?"]);
+  }
+
+  // Poll for agent/admin replies while the panel is open and a session
+  // exists -- matches the website widget, which polls unconditionally once
+  // it has a session id.
   useEffect(() => {
-    if (!open || !agentMode) return;
+    if (!open) return;
     let cancelled = false;
 
     const markJoined = () => {
       if (!agentJoinedRef.current) {
         agentJoinedRef.current = true;
-        setAgentJoined(true);
         setMessages((prev) => [...prev, { id: nextId(), kind: "note", text: "A live agent has joined the chat." }]);
       }
     };
@@ -310,12 +302,11 @@ export function ChatAssistant() {
       const { messages: updates, deleted } = await api.getAssistantUpdates(session, lastAgentIdRef.current);
       if (cancelled) return;
       if (deleted) {
-        setAgentMode(false);
+        agentJoinedRef.current = false;
         setMessages((prev) => [
           ...prev,
-          { id: nextId(), kind: "note", text: "This support session was closed. Start again any time." },
+          { id: nextId(), kind: "note", text: "This chat session was closed. Ask a new question any time." },
         ]);
-        setChips([{ key: "reset", label: "Back to start", tone: "reset", onPress: backToStart }]);
         return;
       }
       for (const m of updates) {
@@ -327,10 +318,8 @@ export function ChatAssistant() {
         }
         if (m.sender === "admin") {
           markJoined();
-          setMessages((prev) => [
-            ...prev,
-            { id: `agent_${m.id}`, kind: "agent", text: htmlToText(m.message) },
-          ]);
+          const { text } = parseReply(m.message);
+          setMessages((prev) => [...prev, { id: `agent_${m.id}`, kind: "agent", text }]);
         }
       }
     };
@@ -341,8 +330,7 @@ export function ChatAssistant() {
       cancelled = true;
       clearInterval(iv);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [open, agentMode]);
+  }, [open]);
 
   // ---------- menu actions ----------
   async function visitWebsite() {
@@ -371,7 +359,7 @@ export function ChatAssistant() {
             styles.panel,
             {
               top: insets.top + 44,
-              bottom: bubbleBottom + 74,
+              bottom: bubbleBottom + 74 + kb,
               opacity: anim,
               transform: [{ translateY: panelTranslate }],
             },
@@ -394,13 +382,7 @@ export function ChatAssistant() {
               <ThemedText style={styles.headerTitle}>HeyDream Help</ThemedText>
               <View style={styles.headerStatusRow}>
                 <View style={styles.onlineDot} />
-                <ThemedText style={styles.headerStatus}>
-                  {agentMode
-                    ? agentJoined
-                      ? "Agent connected"
-                      : "Connecting you to an agent…"
-                    : "Online"}
-                </ThemedText>
+                <ThemedText style={styles.headerStatus}>Online</ThemedText>
               </View>
             </View>
             <Pressable style={styles.headerBtn} onPress={() => setMenuOpen((v) => !v)} hitSlop={8}>
@@ -413,7 +395,7 @@ export function ChatAssistant() {
 
           {menuOpen && (
             <View style={styles.menu}>
-              <MenuItem icon="headset" label="Live Agents" onPress={startLiveAgent} />
+              <MenuItem icon="headset" label="Live Agents" onPress={() => send("Talk to a live agent")} />
               <MenuItem icon="globe-outline" label="Visit Our Website" onPress={visitWebsite} />
               <MenuItem icon="alert-circle-outline" label="Report Issue" onPress={reportIssue} />
             </View>
@@ -448,27 +430,17 @@ export function ChatAssistant() {
                   <View style={[styles.bubble, isAgent ? styles.bubbleAgent : styles.bubbleBot]}>
                     {isAgent && <ThemedText style={styles.agentName}>Agent</ThemedText>}
                     <ThemedText style={styles.bubbleBotText}>{m.text}</ThemedText>
-                    {m.kind === "bot" && m.answer?.link && (
-                      <Pressable
-                        style={styles.answerAction}
-                        onPress={() => WebBrowser.openBrowserAsync(m.answer!.link!.url)}
-                      >
-                        <Ionicons name="open-outline" size={14} color={Colors.primary} />
-                        <ThemedText style={styles.answerActionText}>{m.answer.link.label}</ThemedText>
-                      </Pressable>
-                    )}
-                    {m.kind === "bot" && m.answer?.route && (
-                      <Pressable
-                        style={styles.answerAction}
-                        onPress={() => {
-                          setOpen(false);
-                          router.push(m.answer!.route!.path as any);
-                        }}
-                      >
-                        <Ionicons name="arrow-forward" size={14} color={Colors.primary} />
-                        <ThemedText style={styles.answerActionText}>{m.answer.route.label}</ThemedText>
-                      </Pressable>
-                    )}
+                    {m.kind === "bot" &&
+                      m.links?.map((l, i) => (
+                        <Pressable
+                          key={`${m.id}_l${i}`}
+                          style={styles.linkAction}
+                          onPress={() => WebBrowser.openBrowserAsync(l.url)}
+                        >
+                          <Ionicons name="open-outline" size={14} color={Colors.primary} />
+                          <ThemedText style={styles.linkActionText}>{l.label}</ThemedText>
+                        </Pressable>
+                      ))}
                   </View>
                 </View>
               );
@@ -482,39 +454,53 @@ export function ChatAssistant() {
               </View>
             )}
 
-            {chips.length > 0 && (
+            {suggestions.length > 0 && (
               <View style={styles.chipWrap}>
-                {chips.map((c) => (
-                  <Pressable
-                    key={c.key}
-                    style={[
-                      styles.chip,
-                      c.tone === "agent" && styles.chipAgent,
-                      c.tone === "reset" && styles.chipReset,
-                    ]}
-                    onPress={c.onPress}
-                    disabled={busy}
-                  >
-                    {c.tone === "agent" && (
-                      <Ionicons name="headset" size={12} color={Colors.primary} style={{ marginRight: 5 }} />
-                    )}
-                    <ThemedText style={[styles.chipText, c.tone === "reset" && styles.chipResetText]}>
-                      {c.label}
-                    </ThemedText>
-                  </Pressable>
-                ))}
+                {suggestions.map((s, i) => {
+                  const isAgent = /live agent/i.test(s);
+                  return (
+                    <Pressable
+                      key={`${i}_${s}`}
+                      style={[styles.chip, isAgent && styles.chipAgent]}
+                      onPress={() => send(s)}
+                      disabled={busy}
+                    >
+                      {isAgent && (
+                        <Ionicons name="headset" size={12} color={Colors.primary} style={{ marginRight: 5 }} />
+                      )}
+                      <ThemedText style={styles.chipText}>{s}</ThemedText>
+                    </Pressable>
+                  );
+                })}
               </View>
             )}
           </ScrollView>
 
-          <View style={styles.footer}>
-            <ThemedText style={styles.footerText}>Tap a question — no typing needed</ThemedText>
+          <View style={styles.inputRow}>
+            <TextInput
+              style={styles.input}
+              placeholder="Ask a question…"
+              placeholderTextColor="#94A3B8"
+              value={input}
+              onChangeText={setInput}
+              onSubmitEditing={() => send(input)}
+              returnKeyType="send"
+              multiline
+              maxLength={500}
+            />
+            <Pressable
+              style={[styles.sendBtn, (!input.trim() || busy) && styles.sendBtnDisabled]}
+              onPress={() => send(input)}
+              disabled={!input.trim() || busy}
+            >
+              <Ionicons name="send" size={16} color={Colors.white} />
+            </Pressable>
           </View>
         </Animated.View>
       )}
 
       <Pressable
-        style={[styles.fab, { bottom: bubbleBottom, right: 18 }]}
+        style={[styles.fab, { bottom: bubbleBottom + kb, right: 18 }]}
         onPress={() => (open ? setOpen(false) : openPanel())}
       >
         {open ? (
@@ -640,7 +626,7 @@ const styles = StyleSheet.create({
   bubbleBotText: { color: Colors.dark, fontSize: 13.5, lineHeight: 20 },
   bubbleUserText: { color: Colors.white, fontSize: 13.5, lineHeight: 20 },
   agentName: { color: Colors.primary, fontSize: 11, fontWeight: "800", marginBottom: 3 },
-  answerAction: {
+  linkAction: {
     flexDirection: "row",
     alignItems: "center",
     gap: 6,
@@ -651,7 +637,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 7,
   },
-  answerActionText: { color: Colors.primary, fontSize: 12, fontWeight: "700" },
+  linkActionText: { color: Colors.primary, fontSize: 12, fontWeight: "700" },
   noteRow: { alignItems: "center", marginVertical: 8, paddingHorizontal: 12 },
   noteText: {
     fontSize: 11.5,
@@ -677,16 +663,39 @@ const styles = StyleSheet.create({
   },
   chipText: { color: Colors.primary, fontSize: 12.5, fontWeight: "700" },
   chipAgent: { backgroundColor: "#FFF7E6", borderColor: Colors.accent },
-  chipReset: { borderColor: "#CBD5E1", backgroundColor: "#F8FAFC" },
-  chipResetText: { color: Colors.text },
-  footer: {
+  inputRow: {
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 8,
     borderTopWidth: 1,
     borderTopColor: "#E7EDF5",
-    paddingVertical: 8,
-    alignItems: "center",
     backgroundColor: Colors.white,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
-  footerText: { fontSize: 10.5, color: "#94A3B8", fontWeight: "600" },
+  input: {
+    flex: 1,
+    maxHeight: 96,
+    minHeight: 38,
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 19,
+    paddingHorizontal: 14,
+    paddingTop: Platform.OS === "ios" ? 10 : 6,
+    paddingBottom: Platform.OS === "ios" ? 10 : 6,
+    fontSize: 13.5,
+    color: Colors.dark,
+    backgroundColor: "#F8FAFC",
+  },
+  sendBtn: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: Colors.primary,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendBtnDisabled: { opacity: 0.4 },
   fab: {
     position: "absolute",
     width: 58,

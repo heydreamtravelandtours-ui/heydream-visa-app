@@ -239,6 +239,16 @@ export interface AssistantReply {
   suggestions?: string[];
   success?: boolean;
   last_msg_id?: number;
+  // ai_chat.php hands the Gemini call back to the client when its own
+  // server-side curl to Google fails (see its `needs_client_call` branch).
+  status?: string;
+  api_url?: string;
+  payload?: Record<string, any>;
+}
+
+export interface AssistantHistoryTurn {
+  role: "user" | "model";
+  parts: { text: string }[];
 }
 
 export async function sendAssistantMessage(body: {
@@ -246,12 +256,68 @@ export async function sendAssistantMessage(body: {
   session_id: string;
   customer_name?: string;
   customer_email?: string;
+  history?: AssistantHistoryTurn[];
 }): Promise<AssistantReply> {
   try {
     const res = await fetch(API_ENDPOINTS.AI_CHAT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, source: "visa" }),
+    });
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+// Fulfil ai_chat.php's `needs_client_call` by hitting Gemini from here,
+// mirroring chatbot_widget.php's hdCallGeminiDirectly(). The API key is
+// embedded in the api_url the server hands back -- same trust model as the
+// website, where it sits in page source.
+export async function callGeminiDirect(
+  apiUrl: string,
+  payload: Record<string, any>
+): Promise<string | null> {
+  try {
+    const res = await fetch(apiUrl, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = await res.json();
+    let raw: string = result?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+    raw = raw.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+    try {
+      const parsed = JSON.parse(raw);
+      if (parsed.reply) raw = parsed.reply;
+    } catch {
+      const m = raw.match(/"reply"\s*:\s*"([^"\\]*(?:\\.[^"\\]*)*)"/s);
+      if (m) {
+        raw = m[1].replace(/\\(.)/g, (_full, ch: string) =>
+          ch === "n" ? "\n" : ch === "r" ? "\r" : ch === "t" ? "\t" : ch
+        );
+      }
+    }
+    return raw || null;
+  } catch {
+    return null;
+  }
+}
+
+// Log a client-fulfilled reply back to ai_chat.php so it shows in the admin
+// panel and the polling cursor stays aligned.
+export async function logAssistantReply(body: {
+  message: string;
+  ai_reply: string;
+  session_id: string;
+  customer_name?: string;
+  customer_email?: string;
+}): Promise<{ last_msg_id?: number }> {
+  try {
+    const res = await fetch(API_ENDPOINTS.AI_CHAT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, log_only: true }),
     });
     return await res.json();
   } catch {
