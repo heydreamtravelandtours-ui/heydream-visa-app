@@ -262,7 +262,9 @@ export async function sendAssistantMessage(body: {
     const res = await fetch(API_ENDPOINTS.AI_CHAT, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...body, source: "visa" }),
+      // 'visa_app' (not 'visa') tells ai_chat.php to answer for the mobile
+      // app -- same visa scope, but steer to in-app screens over web links.
+      body: JSON.stringify({ ...body, source: "visa_app" }),
     });
     return await res.json();
   } catch {

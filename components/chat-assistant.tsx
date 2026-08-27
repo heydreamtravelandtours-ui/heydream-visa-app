@@ -110,6 +110,46 @@ function parseReply(html?: string): { text: string; links: Link[] } {
   return { text: htmlToText(s), links };
 }
 
+// A HeyDream web link the assistant hands back gets routed to the matching
+// native screen instead of kicking the user out to a browser. Anything not
+// recognised (or off-site) still opens externally.
+function mapUrlToRoute(url: string): { path: string; label: string } | null {
+  // Hand-parsed rather than `new URL()` -- RN/Hermes's URL support is
+  // patchy across versions and this only needs host + filename + ?id.
+  const m = url.match(/^(?:https?:\/\/([^/]+))?([^?#]*)(?:\?([^#]*))?/i);
+  if (!m) return null;
+  const host = (m[1] || "").toLowerCase().replace(/:\d+$/, "");
+  if (host && !/(^|\.)heydreamtravel\.com$/.test(host)) return null;
+  const file = ((m[2] || "").split("/").pop() || "").toLowerCase();
+  const idMatch = (m[3] || "").match(/(?:^|&)id=([^&]+)/);
+  const id = idMatch ? decodeURIComponent(idMatch[1]) : null;
+
+  switch (file) {
+    case "about.php":
+      return { path: "/about", label: "Open About" };
+    case "terms.php":
+      return { path: "/terms", label: "Open Terms" };
+    case "help-support.php":
+    case "support.php":
+      return { path: "/support", label: "Open Contact Support" };
+    case "profile.php":
+    case "my-profile.php":
+      return { path: "/(tabs)/applications", label: "Open My Applications" };
+    case "index.php":
+    case "download-app.php":
+    case "":
+      return { path: "/(tabs)", label: "Go to Home" };
+    case "details.php":
+    case "visitor-details.php":
+      return id ? { path: `/visa/${id}`, label: "View this visa" } : { path: "/(tabs)", label: "Browse visas" };
+    case "book.php":
+    case "visitor-book.php":
+      return id ? { path: `/apply/${id}`, label: "Start this application" } : { path: "/(tabs)", label: "Browse visas" };
+    default:
+      return null;
+  }
+}
+
 export function ChatAssistant() {
   const pathname = usePathname();
   const router = useRouter();
@@ -431,16 +471,32 @@ export function ChatAssistant() {
                     {isAgent && <ThemedText style={styles.agentName}>Agent</ThemedText>}
                     <ThemedText style={styles.bubbleBotText}>{m.text}</ThemedText>
                     {m.kind === "bot" &&
-                      m.links?.map((l, i) => (
-                        <Pressable
-                          key={`${m.id}_l${i}`}
-                          style={styles.linkAction}
-                          onPress={() => WebBrowser.openBrowserAsync(l.url)}
-                        >
-                          <Ionicons name="open-outline" size={14} color={Colors.primary} />
-                          <ThemedText style={styles.linkActionText}>{l.label}</ThemedText>
-                        </Pressable>
-                      ))}
+                      m.links?.map((l, i) => {
+                        const route = mapUrlToRoute(l.url);
+                        return (
+                          <Pressable
+                            key={`${m.id}_l${i}`}
+                            style={styles.linkAction}
+                            onPress={() => {
+                              if (route) {
+                                setOpen(false);
+                                router.push(route.path as any);
+                              } else {
+                                WebBrowser.openBrowserAsync(l.url);
+                              }
+                            }}
+                          >
+                            <Ionicons
+                              name={route ? "arrow-forward" : "open-outline"}
+                              size={14}
+                              color={Colors.primary}
+                            />
+                            <ThemedText style={styles.linkActionText}>
+                              {route ? route.label : l.label}
+                            </ThemedText>
+                          </Pressable>
+                        );
+                      })}
                   </View>
                 </View>
               );
