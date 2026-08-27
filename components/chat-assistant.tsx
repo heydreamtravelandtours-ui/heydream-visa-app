@@ -9,6 +9,7 @@
 // handoff are polled from get_chat_updates.php, same as the website widget.
 
 import { ThemedText } from "@/components/themed-text";
+import { TypingDots } from "@/components/typing-dots";
 import { VISA_WEB_BASE_URL } from "@/api/config";
 import * as api from "@/api/client";
 import type { AssistantHistoryTurn } from "@/api/client";
@@ -148,35 +149,6 @@ function mapUrlToRoute(url: string): { path: string; label: string } | null {
     default:
       return null;
   }
-}
-
-// Three dots bouncing in sequence -- shown for both "assistant is thinking"
-// and "live agent is typing", matching the website widget's hd-typing-dots.
-function TypingDots() {
-  const a = useRef(new Animated.Value(0.3)).current;
-  const b = useRef(new Animated.Value(0.3)).current;
-  const c = useRef(new Animated.Value(0.3)).current;
-  useEffect(() => {
-    const mk = (v: Animated.Value, delay: number) =>
-      Animated.loop(
-        Animated.sequence([
-          Animated.delay(delay),
-          Animated.timing(v, { toValue: 1, duration: 300, useNativeDriver: true }),
-          Animated.timing(v, { toValue: 0.3, duration: 300, useNativeDriver: true }),
-          Animated.delay(450 - delay),
-        ])
-      );
-    const anims = [mk(a, 0), mk(b, 150), mk(c, 300)];
-    anims.forEach((x) => x.start());
-    return () => anims.forEach((x) => x.stop());
-  }, [a, b, c]);
-  return (
-    <View style={styles.typingRow}>
-      {[a, b, c].map((v, i) => (
-        <Animated.View key={i} style={[styles.typingDot, { opacity: v }]} />
-      ))}
-    </View>
-  );
 }
 
 export function ChatAssistant() {
@@ -781,8 +753,6 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   senderNameAgent: { color: Colors.primary },
-  typingRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 3 },
-  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#94A3B8" },
   linkAction: {
     flexDirection: "row",
     alignItems: "center",

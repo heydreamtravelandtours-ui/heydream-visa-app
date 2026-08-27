@@ -72,6 +72,10 @@ export const API_ENDPOINTS = {
   NOTIFICATIONS: `${API_BASE_URL}/visa/api/notifications-api.php`,
   BOOKING_COUNT: `${API_BASE_URL}/visa/api/get-booking-count.php`,
   BOOKING_CHAT: `${API_BASE_URL}/visa/api/booking-chat.php`,
+  // Incremental message + typing sync for a booking thread (bearer-auth
+  // added for the app). Used for polling after booking-chat.php's `open`
+  // hands back the conversation id.
+  BOOKING_CHAT_SYNC: `${API_BASE_URL}/api/chat_sync.php`,
   GET_PROFILE: `${API_BASE_URL}/visa/api/get-profile.php`,
   UPDATE_PROFILE: `${API_BASE_URL}/visa/api/update-profile.php`,
   UPLOAD_PROFILE_PHOTO: `${API_BASE_URL}/visa/api/upload-profile-photo.php`,

@@ -14,6 +14,11 @@ import { useFocusEffect } from "expo-router";
 import * as api from "@/api/client";
 import { useAuth } from "@/contexts/auth-context";
 
+// Re-checks while a tab is focused, not only on focus, so a reply that
+// lands from the admin side (which drops a 'chat_reply' notification) shows
+// on the bell within ~30s without the user switching tabs.
+const POLL_MS = 30000;
+
 export function useUnreadCount() {
   const { user } = useAuth();
   const [unreadCount, setUnreadCount] = useState(0);
@@ -28,7 +33,14 @@ export function useUnreadCount() {
     });
   }, [user]);
 
-  useFocusEffect(refresh);
+  useFocusEffect(
+    useCallback(() => {
+      refresh();
+      if (!user) return;
+      const id = setInterval(refresh, POLL_MS);
+      return () => clearInterval(id);
+    }, [refresh, user])
+  );
 
   return { unreadCount, refresh };
 }

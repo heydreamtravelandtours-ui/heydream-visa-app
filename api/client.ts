@@ -198,6 +198,50 @@ export function sendBookingChatMessage(bookingNumber: string, message: string) {
   return apiPostForm(API_ENDPOINTS.BOOKING_CHAT, form);
 }
 
+export interface BookingChatSync {
+  messages: {
+    id: number;
+    sender_type: "Customer" | "Admin" | "Staff" | "Partner";
+    sender_name: string;
+    message: string;
+    formatted_time: string;
+    is_own: boolean;
+  }[];
+  admin_is_typing?: boolean;
+  partner_is_typing?: boolean;
+  last_id?: number;
+}
+
+export async function syncBookingChat(convoId: number, lastId: number): Promise<BookingChatSync> {
+  try {
+    const res = await fetch(
+      `${API_ENDPOINTS.BOOKING_CHAT_SYNC}?convo_id=${convoId}&last_id=${lastId}&viewer=customer`,
+      { headers: await authHeaders() }
+    );
+    const data = await res.json();
+    return {
+      messages: Array.isArray(data?.messages) ? data.messages : [],
+      admin_is_typing: !!data?.admin_is_typing,
+      partner_is_typing: !!data?.partner_is_typing,
+      last_id: typeof data?.last_id === "number" ? data.last_id : lastId,
+    };
+  } catch {
+    return { messages: [], last_id: lastId };
+  }
+}
+
+export async function setBookingChatTyping(convoId: number, typing: boolean): Promise<void> {
+  try {
+    await fetch(`${API_ENDPOINTS.BOOKING_CHAT_SYNC}?convo_id=${convoId}&viewer=customer`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...(await authHeaders()) },
+      body: JSON.stringify({ typing }),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
 export function getProfile() {
   return apiGet(API_ENDPOINTS.GET_PROFILE);
 }
