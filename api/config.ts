@@ -77,4 +77,11 @@ export const API_ENDPOINTS = {
   UPLOAD_PROFILE_PHOTO: `${API_BASE_URL}/visa/api/upload-profile-photo.php`,
   CHANGE_PASSWORD: `${API_BASE_URL}/visa/api/change-password.php`,
   SUBMIT_REPORT: `${API_BASE_URL}/visa/api/submit-report.php`,
+  // The visa subdomain's same-origin proxies to the main site's AI chat
+  // endpoints (visa/inquiry/{ai_chat,get_chat_updates}.php) -- the in-app
+  // help assistant only calls these for the "Talk to a live agent" handoff
+  // (session + reply polling); its FAQ answers are curated locally in
+  // constants/assistant-knowledge.ts and never hit the network.
+  AI_CHAT: `${API_BASE_URL}/visa/inquiry/ai_chat.php`,
+  AI_CHAT_UPDATES: `${API_BASE_URL}/visa/inquiry/get_chat_updates.php`,
 } as const;

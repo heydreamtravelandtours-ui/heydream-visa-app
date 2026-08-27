@@ -139,14 +139,17 @@ export default function SupportScreen() {
           autoCapitalize="none"
         />
         <LabeledInput
-          label="Phone (Optional)"
+          label="Phone"
+          optional
           value={reporterPhone}
           onChangeText={setReporterPhone}
           placeholder="+63 912 345 6789"
           keyboardType="phone-pad"
         />
 
-        <ThemedText style={styles.sectionLabel}>Screenshot (Optional)</ThemedText>
+        <ThemedText style={styles.sectionLabel}>
+          Screenshot <ThemedText style={styles.sectionLabelOptional}>(optional)</ThemedText>
+        </ThemedText>
         {screenshot ? (
           <View style={styles.screenshotPreview}>
             <Image source={{ uri: screenshot.uri }} style={styles.screenshotImage} />
@@ -177,6 +180,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: Colors.background },
   scrollContent: { padding: 20, paddingBottom: 40 },
   sectionLabel: { fontSize: 12.5, fontWeight: "700", color: Colors.dark, marginBottom: 8, marginTop: 4 },
+  sectionLabelOptional: { color: "#94A3B8", fontWeight: "500", fontSize: 11.5 },
   typeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 16 },
   typeChip: {
     flexDirection: "row",

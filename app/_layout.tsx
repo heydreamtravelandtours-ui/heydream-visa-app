@@ -1,6 +1,7 @@
 // app/_layout.tsx
 
 import { AlertHost } from "@/components/alert-host";
+import { ChatAssistant } from "@/components/chat-assistant";
 import { AuthProvider } from "@/contexts/auth-context";
 import { GateProvider, useGateChoice, VisaGate } from "@/components/visa-gate";
 import { Colors } from "@/constants/theme";
@@ -50,6 +51,9 @@ function GatedApp() {
         <Stack.Screen name="social" />
         <Stack.Screen name="terms" />
       </Stack>
+      {/* Above every screen, below the gate overlay -- so it's hidden while
+          the direction gate is still up, then rides on top afterwards. */}
+      <ChatAssistant />
       {choice !== "ph_outbound" && choice !== "foreign_inbound" && (
         // Overlays the Stack instead of replacing it -- mirrors
         // visa/index.php's gate-lock overlay, so reopening it (the

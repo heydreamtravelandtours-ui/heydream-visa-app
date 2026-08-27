@@ -614,6 +614,7 @@ export default function ApplyScreen() {
                       <View style={styles.rowFields}>
                         <LabeledInput
                           label="Middle Name"
+                          optional
                           placeholder="Middle name"
                           value={a.middleName}
                           onChangeText={(v) => updateApplicant(idx, { middleName: v })}
@@ -621,6 +622,7 @@ export default function ApplyScreen() {
                         />
                         <LabeledInput
                           label="Suffix"
+                          optional
                           placeholder="Jr., Sr., III"
                           value={a.suffix}
                           onChangeText={(v) => updateApplicant(idx, { suffix: v })}
@@ -666,12 +668,14 @@ export default function ApplyScreen() {
                       />
                       <LabeledInput
                         label="Occupation"
+                        optional
                         placeholder="Job title"
                         value={a.occupation}
                         onChangeText={(v) => updateApplicant(idx, { occupation: v })}
                       />
                       <LabeledInput
                         label="Travel History"
+                        optional
                         placeholder="Countries visited in the last 5 years"
                         value={a.travelHistory}
                         onChangeText={(v) => updateApplicant(idx, { travelHistory: v })}

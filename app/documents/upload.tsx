@@ -24,7 +24,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 interface UploadedDoc {
@@ -59,6 +59,12 @@ export default function UploadDocumentsScreen() {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+
+  const scrollRef = useRef<ScrollView>(null);
+  const uploadSectionY = useRef(0);
+  const scrollToUpload = () => {
+    scrollRef.current?.scrollTo({ y: Math.max(0, uploadSectionY.current - 12), animated: true });
+  };
 
   const load = useCallback(async () => {
     const [docsResult, bookingsResult] = await Promise.all([
@@ -307,13 +313,20 @@ export default function UploadDocumentsScreen() {
     <ThemedView style={styles.container}>
       <StatusBar style="light" />
       <ScreenHeader title="Documents" />
-      <ScrollView contentContainerStyle={styles.scrollContent}>
+      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
         <ThemedText style={styles.subtitle}>Application {bookingNumber}</ThemedText>
 
         {requirements.length > 0 && (
           <View style={styles.neededBox}>
             <ThemedText style={styles.neededTitle}>Documents needed:</ThemedText>
             <ThemedText style={styles.neededText}>{requirements.join(", ")}</ThemedText>
+            <Pressable
+              style={({ pressed }) => [styles.neededUploadBtn, pressed && styles.neededUploadBtnPressed]}
+              onPress={scrollToUpload}
+            >
+              <Ionicons name="cloud-upload-outline" size={15} color={Colors.white} />
+              <ThemedText style={styles.neededUploadBtnText}>Upload a document</ThemedText>
+            </Pressable>
           </View>
         )}
 
@@ -418,7 +431,12 @@ export default function UploadDocumentsScreen() {
           </View>
         )}
 
-        <View style={styles.section}>
+        <View
+          style={styles.section}
+          onLayout={(e) => {
+            uploadSectionY.current = e.nativeEvent.layout.y;
+          }}
+        >
           <ThemedText style={styles.sectionTitle}>Upload a Document</ThemedText>
           {requirements.length === 0 ? (
             <ThemedText style={styles.subtitle}>
@@ -510,6 +528,19 @@ const styles = StyleSheet.create({
   neededBox: { backgroundColor: "#EFF6FF", borderRadius: 12, padding: 14, marginBottom: 20 },
   neededTitle: { color: Colors.primary, fontWeight: "800", fontSize: 13, marginBottom: 4 },
   neededText: { color: Colors.dark, fontSize: 13, lineHeight: 19 },
+  neededUploadBtn: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 6,
+    marginTop: 12,
+    backgroundColor: Colors.primary,
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+  },
+  neededUploadBtnPressed: { opacity: 0.85 },
+  neededUploadBtnText: { color: Colors.white, fontSize: 12.5, fontWeight: "700" },
   section: { marginBottom: 22 },
   sectionTitle: { fontSize: 15, fontWeight: "800", color: Colors.dark, marginBottom: 10 },
   emptyBox: {

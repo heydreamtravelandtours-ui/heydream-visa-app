@@ -14,15 +14,20 @@ import { ThemedText } from "./themed-text";
 interface LabeledInputProps extends TextInputProps {
   label: string;
   required?: boolean;
+  // Muted "(optional)" hint after the label -- the counterpart to `required`'s
+  // red asterisk, so a form scanned top-to-bottom makes clear which fields
+  // can be safely skipped instead of leaving it ambiguous.
+  optional?: boolean;
   containerStyle?: ViewStyle;
 }
 
-export function LabeledInput({ label, required, containerStyle, style, ...rest }: LabeledInputProps) {
+export function LabeledInput({ label, required, optional, containerStyle, style, ...rest }: LabeledInputProps) {
   return (
     <View style={[styles.wrap, containerStyle]}>
       <ThemedText style={styles.label}>
         {label}
         {required && <ThemedText style={styles.required}> *</ThemedText>}
+        {optional && !required && <ThemedText style={styles.optional}> (optional)</ThemedText>}
       </ThemedText>
       <TextInput
         style={[styles.input, rest.multiline && styles.inputMultiline, style]}
@@ -38,6 +43,7 @@ const styles = StyleSheet.create({
   wrap: { marginBottom: 12 },
   label: { fontSize: 12.5, fontWeight: "700", color: Colors.dark, marginBottom: 6 },
   required: { color: "#DC2626" },
+  optional: { color: "#94A3B8", fontWeight: "500", fontSize: 11.5 },
   input: {
     borderWidth: 1,
     borderColor: "#e2e8f0",

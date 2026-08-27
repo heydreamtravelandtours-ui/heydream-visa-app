@@ -28,6 +28,8 @@ import { ThemedText } from "./themed-text";
 interface DateFieldProps {
   label: string;
   required?: boolean;
+  // Muted "(optional)" hint after the label -- mirrors LabeledInput's.
+  optional?: boolean;
   value: Date | null;
   onChange: (date: Date) => void;
   minimumDate?: Date;
@@ -52,7 +54,7 @@ export function toLocalDateString(d: Date | null | undefined): string | undefine
 
 const toInputValue = toLocalDateString;
 
-export function DateField({ label, required, value, onChange, minimumDate, maximumDate, style }: DateFieldProps) {
+export function DateField({ label, required, optional, value, onChange, minimumDate, maximumDate, style }: DateFieldProps) {
   const [showPicker, setShowPicker] = useState(false);
 
   return (
@@ -60,6 +62,7 @@ export function DateField({ label, required, value, onChange, minimumDate, maxim
       <ThemedText style={styles.label}>
         {label}
         {required && <ThemedText style={styles.required}> *</ThemedText>}
+        {optional && !required && <ThemedText style={styles.optional}> (optional)</ThemedText>}
       </ThemedText>
       {Platform.OS === "web" ? (
         React.createElement("input", {
@@ -114,6 +117,7 @@ const styles = StyleSheet.create({
   wrap: { marginBottom: 12 },
   label: { fontSize: 12.5, fontWeight: "700", color: Colors.dark, marginBottom: 6 },
   required: { color: "#DC2626" },
+  optional: { color: "#94A3B8", fontWeight: "500", fontSize: 11.5 },
   input: {
     borderWidth: 1,
     borderColor: "#e2e8f0",

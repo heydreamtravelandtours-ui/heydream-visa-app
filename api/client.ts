@@ -227,3 +227,59 @@ export function changePassword(currentPassword: string, newPassword: string, con
 export function submitReport(form: FormData) {
   return apiPostForm(API_ENDPOINTS.SUBMIT_REPORT, form);
 }
+
+// ---- In-app help assistant: live-agent handoff only ----
+// ai_chat.php is a plain JSON endpoint (no bearer auth) shared with the
+// website chatbot. We send the same shape its widget does: a message plus
+// a stable session_id so the request shows up in the admin panel's AI-chat
+// list and an agent can reply into it. `source: 'visa'` scopes the backend
+// to visa-only handling.
+export interface AssistantReply {
+  reply?: string;
+  suggestions?: string[];
+  success?: boolean;
+  last_msg_id?: number;
+}
+
+export async function sendAssistantMessage(body: {
+  message: string;
+  session_id: string;
+  customer_name?: string;
+  customer_email?: string;
+}): Promise<AssistantReply> {
+  try {
+    const res = await fetch(API_ENDPOINTS.AI_CHAT, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...body, source: "visa" }),
+    });
+    return await res.json();
+  } catch {
+    return {};
+  }
+}
+
+export interface AssistantUpdate {
+  id: number;
+  sender: string; // 'ai' | 'admin' | 'customer' | 'system'
+  message: string;
+}
+
+export async function getAssistantUpdates(
+  sessionId: string,
+  lastId: number
+): Promise<{ messages: AssistantUpdate[]; admin_is_typing?: boolean; deleted?: boolean }> {
+  try {
+    const res = await fetch(
+      `${API_ENDPOINTS.AI_CHAT_UPDATES}?session_id=${encodeURIComponent(sessionId)}&last_id=${lastId}`
+    );
+    const data = await res.json();
+    return {
+      messages: Array.isArray(data?.messages) ? data.messages : [],
+      admin_is_typing: !!data?.admin_is_typing,
+      deleted: !!data?.deleted,
+    };
+  } catch {
+    return { messages: [] };
+  }
+}
