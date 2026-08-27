@@ -150,6 +150,35 @@ function mapUrlToRoute(url: string): { path: string; label: string } | null {
   }
 }
 
+// Three dots bouncing in sequence -- shown for both "assistant is thinking"
+// and "live agent is typing", matching the website widget's hd-typing-dots.
+function TypingDots() {
+  const a = useRef(new Animated.Value(0.3)).current;
+  const b = useRef(new Animated.Value(0.3)).current;
+  const c = useRef(new Animated.Value(0.3)).current;
+  useEffect(() => {
+    const mk = (v: Animated.Value, delay: number) =>
+      Animated.loop(
+        Animated.sequence([
+          Animated.delay(delay),
+          Animated.timing(v, { toValue: 1, duration: 300, useNativeDriver: true }),
+          Animated.timing(v, { toValue: 0.3, duration: 300, useNativeDriver: true }),
+          Animated.delay(450 - delay),
+        ])
+      );
+    const anims = [mk(a, 0), mk(b, 150), mk(c, 300)];
+    anims.forEach((x) => x.start());
+    return () => anims.forEach((x) => x.stop());
+  }, [a, b, c]);
+  return (
+    <View style={styles.typingRow}>
+      {[a, b, c].map((v, i) => (
+        <Animated.View key={i} style={[styles.typingDot, { opacity: v }]} />
+      ))}
+    </View>
+  );
+}
+
 export function ChatAssistant() {
   const pathname = usePathname();
   const router = useRouter();
@@ -164,6 +193,7 @@ export function ChatAssistant() {
   const [busy, setBusy] = useState(false);
   const [input, setInput] = useState("");
   const [kb, setKb] = useState(0);
+  const [agentTyping, setAgentTyping] = useState(false);
 
   const scrollRef = useRef<ScrollView>(null);
   const sessionRef = useRef<string | null>(null);
@@ -171,6 +201,10 @@ export function ChatAssistant() {
   const agentJoinedRef = useRef(false);
   const historyRef = useRef<AssistantHistoryTurn[]>([]);
   const anim = useRef(new Animated.Value(0)).current;
+  // Customer-typing signal: throttle the "true" pings, and auto-clear to
+  // "false" a few seconds after the last keystroke.
+  const typingSentAtRef = useRef(0);
+  const typingClearRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const hidden = useMemo(
     () => !pathname || HIDDEN_PREFIXES.some((p) => pathname.startsWith(p)),
@@ -192,6 +226,8 @@ export function ChatAssistant() {
     }).start();
     if (!open) {
       setMenuOpen(false);
+      setAgentTyping(false);
+      stopTyping();
       Keyboard.dismiss();
     }
   }, [open, anim]);
@@ -261,6 +297,7 @@ export function ChatAssistant() {
     const message = raw.trim();
     if (!message || busy) return;
     setInput("");
+    stopTyping();
     setMenuOpen(false);
     setSuggestions([]);
     pushUser(message);
@@ -322,6 +359,28 @@ export function ChatAssistant() {
     setSuggestions(["Talk to a live agent", "How do I apply for a visa?", "What documents do I need?"]);
   }
 
+  function signalTyping() {
+    const session = sessionRef.current;
+    if (!session) return;
+    const now = Date.now();
+    if (now - typingSentAtRef.current > 2500) {
+      typingSentAtRef.current = now;
+      api.setAssistantTyping(session, true);
+    }
+    if (typingClearRef.current) clearTimeout(typingClearRef.current);
+    typingClearRef.current = setTimeout(stopTyping, 3500);
+  }
+  function stopTyping() {
+    if (typingClearRef.current) {
+      clearTimeout(typingClearRef.current);
+      typingClearRef.current = null;
+    }
+    if (typingSentAtRef.current === 0) return;
+    typingSentAtRef.current = 0;
+    const session = sessionRef.current;
+    if (session) api.setAssistantTyping(session, false);
+  }
+
   // Poll for agent/admin replies while the panel is open and a session
   // exists -- matches the website widget, which polls unconditionally once
   // it has a session id.
@@ -339,10 +398,15 @@ export function ChatAssistant() {
     const tick = async () => {
       const session = sessionRef.current;
       if (!session) return;
-      const { messages: updates, deleted } = await api.getAssistantUpdates(session, lastAgentIdRef.current);
+      const { messages: updates, deleted, admin_is_typing } = await api.getAssistantUpdates(
+        session,
+        lastAgentIdRef.current
+      );
       if (cancelled) return;
+      setAgentTyping(!!admin_is_typing);
       if (deleted) {
         agentJoinedRef.current = false;
+        setAgentTyping(false);
         setMessages((prev) => [
           ...prev,
           { id: nextId(), kind: "note", text: "This chat session was closed. Ask a new question any time." },
@@ -467,8 +531,11 @@ export function ChatAssistant() {
               const isAgent = m.kind === "agent";
               return (
                 <View key={m.id} style={[styles.bubbleRow, styles.bubbleRowLeft]}>
-                  <View style={[styles.bubble, isAgent ? styles.bubbleAgent : styles.bubbleBot]}>
-                    {isAgent && <ThemedText style={styles.agentName}>Agent</ThemedText>}
+                  <View style={styles.incomingCol}>
+                    <ThemedText style={[styles.senderName, isAgent && styles.senderNameAgent]}>
+                      {isAgent ? "Live Agent" : "HeyDream AI"}
+                    </ThemedText>
+                    <View style={[styles.bubble, styles.incomingBubble, isAgent ? styles.bubbleAgent : styles.bubbleBot]}>
                     <ThemedText style={styles.bubbleBotText}>{m.text}</ThemedText>
                     {m.kind === "bot" &&
                       m.links?.map((l, i) => {
@@ -497,15 +564,27 @@ export function ChatAssistant() {
                           </Pressable>
                         );
                       })}
+                    </View>
                   </View>
                 </View>
               );
             })}
 
-            {busy && (
+            {(busy || agentTyping) && (
               <View style={[styles.bubbleRow, styles.bubbleRowLeft]}>
-                <View style={[styles.bubble, styles.bubbleBot]}>
-                  <ThemedText style={styles.bubbleBotText}>…</ThemedText>
+                <View style={styles.incomingCol}>
+                  <ThemedText style={[styles.senderName, agentTyping && !busy && styles.senderNameAgent]}>
+                    {agentTyping && !busy ? "Live Agent" : "HeyDream AI"}
+                  </ThemedText>
+                  <View
+                    style={[
+                      styles.bubble,
+                      styles.incomingBubble,
+                      agentTyping && !busy ? styles.bubbleAgent : styles.bubbleBot,
+                    ]}
+                  >
+                    <TypingDots />
+                  </View>
                 </View>
               </View>
             )}
@@ -538,7 +617,11 @@ export function ChatAssistant() {
               placeholder="Ask a question…"
               placeholderTextColor="#94A3B8"
               value={input}
-              onChangeText={setInput}
+              onChangeText={(t) => {
+                setInput(t);
+                if (t.trim()) signalTyping();
+              }}
+              onBlur={stopTyping}
               onSubmitEditing={() => send(input)}
               returnKeyType="send"
               multiline
@@ -599,6 +682,11 @@ const styles = StyleSheet.create({
     position: "absolute",
     left: 12,
     right: 12,
+    // Full-width on a phone (iPhone SE ~351px here), but capped and
+    // right-anchored on a tablet / desktop-web window so it reads as a
+    // widget beside the bubble rather than a giant sheet.
+    maxWidth: 460,
+    marginLeft: "auto",
     backgroundColor: Colors.white,
     borderRadius: 22,
     overflow: "hidden",
@@ -662,7 +750,9 @@ const styles = StyleSheet.create({
   bubbleRow: { flexDirection: "row", marginBottom: 10, maxWidth: "100%" },
   bubbleRowLeft: { justifyContent: "flex-start" },
   bubbleRowRight: { justifyContent: "flex-end" },
+  incomingCol: { flexShrink: 1, maxWidth: "88%", alignItems: "flex-start" },
   bubble: { maxWidth: "86%", borderRadius: 16, paddingHorizontal: 13, paddingVertical: 10 },
+  incomingBubble: { maxWidth: "100%" },
   bubbleBot: {
     backgroundColor: Colors.white,
     borderBottomLeftRadius: 4,
@@ -681,7 +771,18 @@ const styles = StyleSheet.create({
   bubbleUser: { backgroundColor: Colors.primary, borderBottomRightRadius: 4 },
   bubbleBotText: { color: Colors.dark, fontSize: 13.5, lineHeight: 20 },
   bubbleUserText: { color: Colors.white, fontSize: 13.5, lineHeight: 20 },
-  agentName: { color: Colors.primary, fontSize: 11, fontWeight: "800", marginBottom: 3 },
+  senderName: {
+    fontSize: 10,
+    fontWeight: "800",
+    letterSpacing: 0.3,
+    textTransform: "uppercase",
+    color: "#94A3B8",
+    marginBottom: 3,
+    marginLeft: 4,
+  },
+  senderNameAgent: { color: Colors.primary },
+  typingRow: { flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 3 },
+  typingDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: "#94A3B8" },
   linkAction: {
     flexDirection: "row",
     alignItems: "center",

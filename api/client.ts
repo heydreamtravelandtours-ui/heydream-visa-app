@@ -351,6 +351,20 @@ export interface AssistantUpdate {
   message: string;
 }
 
+// Tell the backend the customer is (or isn't) typing, so the admin's AI-chat
+// console shows the same "customer is typing" dots the website widget sends.
+export async function setAssistantTyping(sessionId: string, typing: boolean): Promise<void> {
+  try {
+    await fetch(`${API_ENDPOINTS.AI_CHAT_UPDATES}?session_id=${encodeURIComponent(sessionId)}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ typing }),
+    });
+  } catch {
+    /* best-effort */
+  }
+}
+
 export async function getAssistantUpdates(
   sessionId: string,
   lastId: number
