@@ -84,4 +84,7 @@ export const API_ENDPOINTS = {
   // constants/assistant-knowledge.ts and never hit the network.
   AI_CHAT: `${API_BASE_URL}/visa/inquiry/ai_chat.php`,
   AI_CHAT_UPDATES: `${API_BASE_URL}/visa/inquiry/get_chat_updates.php`,
+  // Version manifest: { latest, minimum, download_url, notes }. Drives the
+  // in-app "update available" / "update required" prompt on launch.
+  APP_VERSION: `${API_BASE_URL}/api/app-version.php`,
 } as const;

@@ -228,6 +228,24 @@ export function submitReport(form: FormData) {
   return apiPostForm(API_ENDPOINTS.SUBMIT_REPORT, form);
 }
 
+export interface AppVersionInfo {
+  latest: string;
+  minimum: string;
+  download_url: string;
+  notes?: string;
+}
+
+export async function getAppVersionInfo(): Promise<AppVersionInfo | null> {
+  try {
+    const res = await fetch(API_ENDPOINTS.APP_VERSION);
+    const data = await res.json();
+    if (data?.latest && data?.minimum && data?.download_url) return data as AppVersionInfo;
+    return null;
+  } catch {
+    return null;
+  }
+}
+
 // ---- In-app help assistant: live-agent handoff only ----
 // ai_chat.php is a plain JSON endpoint (no bearer auth) shared with the
 // website chatbot. We send the same shape its widget does: a message plus

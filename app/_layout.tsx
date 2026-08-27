@@ -1,6 +1,7 @@
 // app/_layout.tsx
 
 import { AlertHost } from "@/components/alert-host";
+import { AppUpdateGate } from "@/components/app-update-gate";
 import { ChatAssistant } from "@/components/chat-assistant";
 import { AuthProvider } from "@/contexts/auth-context";
 import { GateProvider, useGateChoice, VisaGate } from "@/components/visa-gate";
@@ -63,6 +64,8 @@ function GatedApp() {
           <VisaGate onChoosePhOutbound={choosePhOutbound} onChooseForeignInbound={chooseForeignInbound} />
         </View>
       )}
+      {/* Last -- a forced update must cover the direction gate too. */}
+      <AppUpdateGate />
     </>
   );
 }
