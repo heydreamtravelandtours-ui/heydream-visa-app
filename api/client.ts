@@ -193,15 +193,24 @@ export function unregisterPushToken(token: string) {
 export interface PaymentSettings {
   gcash_number: string;
   gcash_account_name: string;
+  gcash_qr: string;
   paymaya_number: string;
   paymaya_account_name: string;
+  paymaya_qr: string;
   gcash_enabled: boolean;
   paymaya_enabled: boolean;
+  card_enabled: boolean;
+  bank_enabled: boolean;
+  bank_name: string;
+  bank_account_name: string;
+  bank_account_number: string;
 }
 
-// get-payment-settings.php echoes its fields flat (success + the four
-// settings), same shape as getNotifications()/getProfile() -- not nested
-// under a "data" key -- so the result doubles as ApiResult & PaymentSettings.
+// get-payment-settings.php echoes its fields flat (success + the settings),
+// same shape as getNotifications()/getProfile() -- not nested under a
+// "data" key -- so the result doubles as ApiResult & PaymentSettings. Same
+// global_settings-backed source the website's booking wizards read, via
+// config/payment_settings_functions.php's getPaymentSettingsArray().
 export function getPaymentSettings(): Promise<ApiResult & Partial<PaymentSettings>> {
   return apiGet(API_ENDPOINTS.PAYMENT_SETTINGS);
 }

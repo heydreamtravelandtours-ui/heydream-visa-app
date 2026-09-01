@@ -39,6 +39,21 @@ import {
 const SUPPORT_EMAIL = "heydreamtravelandtours@gmail.com";
 const SUPPORT_PHONE = "0945 776 4140";
 
+type PaymentMethodKey = "GCash" | "PayMaya" | "Bank";
+
+// Mirrors visa/profile.php's FLIGHTPAY_ACCOUNTS map -- same three fields
+// (label, destination number, account name), just resolved from the
+// already-fetched PaymentSettings object instead of PHP-injected JS.
+function getMethodDisplayInfo(method: PaymentMethodKey, settings: api.PaymentSettings) {
+  if (method === "GCash") {
+    return { label: "GCash Number", number: settings.gcash_number, name: settings.gcash_account_name, qr: settings.gcash_qr, bankName: "" };
+  }
+  if (method === "PayMaya") {
+    return { label: "PayMaya Number", number: settings.paymaya_number, name: settings.paymaya_account_name, qr: settings.paymaya_qr, bankName: "" };
+  }
+  return { label: "Account Number", number: settings.bank_account_number, name: settings.bank_account_name, qr: "", bankName: settings.bank_name };
+}
+
 interface Booking {
   booking_number: string;
   package_name: string;
@@ -264,6 +279,7 @@ export default function ApplicationDetailScreen() {
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
   const [paymentSettings, setPaymentSettings] = useState<api.PaymentSettings | null>(null);
+  const [selectedMethod, setSelectedMethod] = useState<PaymentMethodKey | null>(null);
 
   const load = useCallback(async () => {
     const result = await api.getMyVisaBookings();
@@ -334,18 +350,34 @@ export default function ApplicationDetailScreen() {
   useEffect(() => {
     if (!canPay) return;
     api.getPaymentSettings().then((result) => {
-      if (result.success && result.gcash_number) {
-        setPaymentSettings({
-          gcash_number: result.gcash_number,
-          gcash_account_name: result.gcash_account_name || "",
-          paymaya_number: result.paymaya_number || "",
-          paymaya_account_name: result.paymaya_account_name || "",
-          gcash_enabled: result.gcash_enabled !== false,
-          paymaya_enabled: result.paymaya_enabled !== false,
-        });
-      }
+      if (!result.success) return;
+      const settings: api.PaymentSettings = {
+        gcash_number: result.gcash_number || "",
+        gcash_account_name: result.gcash_account_name || "",
+        gcash_qr: result.gcash_qr || "",
+        paymaya_number: result.paymaya_number || "",
+        paymaya_account_name: result.paymaya_account_name || "",
+        paymaya_qr: result.paymaya_qr || "",
+        gcash_enabled: result.gcash_enabled !== false,
+        paymaya_enabled: result.paymaya_enabled !== false,
+        card_enabled: result.card_enabled === true,
+        bank_enabled: result.bank_enabled === true,
+        bank_name: result.bank_name || "",
+        bank_account_name: result.bank_account_name || "",
+        bank_account_number: result.bank_account_number || "",
+      };
+      setPaymentSettings(settings);
+      // Default to the first live method -- Card never lands here since it
+      // can't actually be submitted regardless of its visibility toggle.
+      setSelectedMethod(
+        settings.gcash_enabled ? "GCash" : settings.paymaya_enabled ? "PayMaya" : settings.bank_enabled ? "Bank" : null
+      );
     });
   }, [canPay]);
+
+  const noPaymentMethodsAvailable =
+    !!paymentSettings && !paymentSettings.gcash_enabled && !paymentSettings.paymaya_enabled && !paymentSettings.bank_enabled;
+  const methodInfo = selectedMethod && paymentSettings ? getMethodDisplayInfo(selectedMethod, paymentSettings) : null;
 
   const pickProof = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -363,6 +395,10 @@ export default function ApplicationDetailScreen() {
   };
 
   const submitPayment = async () => {
+    if (!selectedMethod) {
+      showAlert("Missing info", "Select a payment method.");
+      return;
+    }
     if (!paymentReference.trim() || !proofUri) {
       showAlert("Missing info", "Enter your payment reference and attach a receipt photo.");
       return;
@@ -370,7 +406,7 @@ export default function ApplicationDetailScreen() {
     setIsSubmittingPayment(true);
     const form = new FormData();
     form.append("booking_number", String(bookingNumber));
-    form.append("payment_method", "GCash");
+    form.append("payment_method", selectedMethod);
     form.append("payment_reference", paymentReference.trim());
     await appendFileToFormData(form, "payment_proof", {
       uri: proofUri,
@@ -482,34 +518,98 @@ export default function ApplicationDetailScreen() {
                 </ThemedText>
               </View>
             )}
-            {paymentSettings && !paymentSettings.gcash_enabled ? (
+            {noPaymentMethodsAvailable ? (
               <View style={styles.noticeBox}>
                 <Ionicons name="alert-circle-outline" size={18} color={Colors.accent} />
                 <ThemedText style={styles.noticeText}>
-                  GCash payment is temporarily unavailable. Please contact us at {SUPPORT_PHONE} or {SUPPORT_EMAIL} to
+                  Online payment is temporarily unavailable. Please contact us at {SUPPORT_PHONE} or {SUPPORT_EMAIL} to
                   arrange payment.
                 </ThemedText>
               </View>
             ) : (
               <>
                 <ThemedText style={styles.helperText}>
-                  Pay via GCash, then enter the reference number and attach your receipt.
+                  Choose a payment method, then enter the reference number and attach your receipt.
                 </ThemedText>
                 {!!paymentSettings && (
+                  <View style={styles.methodRow}>
+                    {paymentSettings.gcash_enabled && (
+                      <Pressable
+                        style={[styles.methodChip, selectedMethod === "GCash" && styles.methodChipActive]}
+                        onPress={() => setSelectedMethod("GCash")}
+                      >
+                        <ThemedText
+                          style={[styles.methodChipText, selectedMethod === "GCash" && styles.methodChipTextActive]}
+                        >
+                          GCash
+                        </ThemedText>
+                      </Pressable>
+                    )}
+                    {paymentSettings.paymaya_enabled && (
+                      <Pressable
+                        style={[styles.methodChip, selectedMethod === "PayMaya" && styles.methodChipActive]}
+                        onPress={() => setSelectedMethod("PayMaya")}
+                      >
+                        <ThemedText
+                          style={[styles.methodChipText, selectedMethod === "PayMaya" && styles.methodChipTextActive]}
+                        >
+                          PayMaya
+                        </ThemedText>
+                      </Pressable>
+                    )}
+                    {paymentSettings.bank_enabled && (
+                      <Pressable
+                        style={[styles.methodChip, selectedMethod === "Bank" && styles.methodChipActive]}
+                        onPress={() => setSelectedMethod("Bank")}
+                      >
+                        <ThemedText
+                          style={[styles.methodChipText, selectedMethod === "Bank" && styles.methodChipTextActive]}
+                        >
+                          Bank
+                        </ThemedText>
+                      </Pressable>
+                    )}
+                    {paymentSettings.card_enabled && (
+                      <Pressable
+                        style={[styles.methodChip, styles.methodChipDisabled]}
+                        onPress={() =>
+                          showAlert("Coming Soon", "Credit/Debit Card payment is coming soon. Please use another method for now.")
+                        }
+                      >
+                        <ThemedText style={styles.methodChipTextDisabled}>Card</ThemedText>
+                      </Pressable>
+                    )}
+                  </View>
+                )}
+                {!!methodInfo && (
                   <View style={styles.payDestinationCard}>
                     <View style={styles.payDestinationQr}>
-                      <Ionicons name="qr-code-outline" size={40} color="#94a3b8" />
+                      {methodInfo.qr ? (
+                        <Image
+                          source={{ uri: methodInfo.qr }}
+                          style={{ width: "100%", height: "100%", borderRadius: 10 }}
+                          contentFit="contain"
+                        />
+                      ) : (
+                        <Ionicons name="qr-code-outline" size={40} color="#94a3b8" />
+                      )}
                     </View>
+                    {!!methodInfo.bankName && (
+                      <View style={styles.payDestinationRow}>
+                        <ThemedText style={styles.payDestinationLabel}>Bank</ThemedText>
+                        <ThemedText style={styles.payDestinationValue}>{methodInfo.bankName}</ThemedText>
+                      </View>
+                    )}
                     <View style={styles.payDestinationRow}>
-                      <ThemedText style={styles.payDestinationLabel}>GCash Number</ThemedText>
+                      <ThemedText style={styles.payDestinationLabel}>{methodInfo.label}</ThemedText>
                       <ThemedText selectable style={styles.payDestinationValue}>
-                        {paymentSettings.gcash_number}
+                        {methodInfo.number}
                       </ThemedText>
                     </View>
                     <View style={styles.payDestinationRow}>
                       <ThemedText style={styles.payDestinationLabel}>Account Name</ThemedText>
                       <ThemedText selectable style={styles.payDestinationValue}>
-                        {paymentSettings.gcash_account_name}
+                        {methodInfo.name}
                       </ThemedText>
                     </View>
                     <View style={styles.payDestinationRow}>
@@ -524,7 +624,7 @@ export default function ApplicationDetailScreen() {
                 )}
                 <TextInput
                   style={styles.input}
-                  placeholder="GCash Reference Number"
+                  placeholder="Payment Reference Number"
                   placeholderTextColor="#94a3b8"
                   value={paymentReference}
                   onChangeText={setPaymentReference}
@@ -813,6 +913,20 @@ const styles = StyleSheet.create({
   requirementDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent, marginTop: 7 },
   requirement: { flex: 1, color: Colors.text, lineHeight: 20 },
   helperText: { color: Colors.text, lineHeight: 20, marginBottom: 12 },
+  methodRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 12 },
+  methodChip: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    backgroundColor: Colors.white,
+  },
+  methodChipActive: { borderColor: Colors.primary, backgroundColor: "#EFF6FF" },
+  methodChipDisabled: { opacity: 0.5 },
+  methodChipText: { color: Colors.text, fontWeight: "600", fontSize: 13 },
+  methodChipTextActive: { color: Colors.primary, fontWeight: "700" },
+  methodChipTextDisabled: { color: "#94a3b8", fontWeight: "600", fontSize: 13 },
   payDestinationCard: {
     backgroundColor: "#f8fafc",
     borderWidth: 1,
