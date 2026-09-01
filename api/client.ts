@@ -195,6 +195,8 @@ export interface PaymentSettings {
   gcash_account_name: string;
   paymaya_number: string;
   paymaya_account_name: string;
+  gcash_enabled: boolean;
+  paymaya_enabled: boolean;
 }
 
 // get-payment-settings.php echoes its fields flat (success + the four

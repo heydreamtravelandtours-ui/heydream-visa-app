@@ -340,6 +340,8 @@ export default function ApplicationDetailScreen() {
           gcash_account_name: result.gcash_account_name || "",
           paymaya_number: result.paymaya_number || "",
           paymaya_account_name: result.paymaya_account_name || "",
+          gcash_enabled: result.gcash_enabled !== false,
+          paymaya_enabled: result.paymaya_enabled !== false,
         });
       }
     });
@@ -480,64 +482,76 @@ export default function ApplicationDetailScreen() {
                 </ThemedText>
               </View>
             )}
-            <ThemedText style={styles.helperText}>
-              Pay via GCash, then enter the reference number and attach your receipt.
-            </ThemedText>
-            {!!paymentSettings && (
-              <View style={styles.payDestinationCard}>
-                <View style={styles.payDestinationQr}>
-                  <Ionicons name="qr-code-outline" size={40} color="#94a3b8" />
-                </View>
-                <View style={styles.payDestinationRow}>
-                  <ThemedText style={styles.payDestinationLabel}>GCash Number</ThemedText>
-                  <ThemedText selectable style={styles.payDestinationValue}>
-                    {paymentSettings.gcash_number}
-                  </ThemedText>
-                </View>
-                <View style={styles.payDestinationRow}>
-                  <ThemedText style={styles.payDestinationLabel}>Account Name</ThemedText>
-                  <ThemedText selectable style={styles.payDestinationValue}>
-                    {paymentSettings.gcash_account_name}
-                  </ThemedText>
-                </View>
-                <View style={styles.payDestinationRow}>
-                  <ThemedText style={styles.payDestinationLabel}>Amount</ThemedText>
-                  <ThemedText style={[styles.payDestinationValue, styles.payDestinationAmount]}>
-                    {booking.currency}
-                    {Number(booking.total_amount).toLocaleString()}
-                  </ThemedText>
-                </View>
-                <ThemedText style={styles.payDestinationHint}>Tap and hold a value to copy it.</ThemedText>
+            {paymentSettings && !paymentSettings.gcash_enabled ? (
+              <View style={styles.noticeBox}>
+                <Ionicons name="alert-circle-outline" size={18} color={Colors.accent} />
+                <ThemedText style={styles.noticeText}>
+                  GCash payment is temporarily unavailable. Please contact us at {SUPPORT_PHONE} or {SUPPORT_EMAIL} to
+                  arrange payment.
+                </ThemedText>
               </View>
+            ) : (
+              <>
+                <ThemedText style={styles.helperText}>
+                  Pay via GCash, then enter the reference number and attach your receipt.
+                </ThemedText>
+                {!!paymentSettings && (
+                  <View style={styles.payDestinationCard}>
+                    <View style={styles.payDestinationQr}>
+                      <Ionicons name="qr-code-outline" size={40} color="#94a3b8" />
+                    </View>
+                    <View style={styles.payDestinationRow}>
+                      <ThemedText style={styles.payDestinationLabel}>GCash Number</ThemedText>
+                      <ThemedText selectable style={styles.payDestinationValue}>
+                        {paymentSettings.gcash_number}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.payDestinationRow}>
+                      <ThemedText style={styles.payDestinationLabel}>Account Name</ThemedText>
+                      <ThemedText selectable style={styles.payDestinationValue}>
+                        {paymentSettings.gcash_account_name}
+                      </ThemedText>
+                    </View>
+                    <View style={styles.payDestinationRow}>
+                      <ThemedText style={styles.payDestinationLabel}>Amount</ThemedText>
+                      <ThemedText style={[styles.payDestinationValue, styles.payDestinationAmount]}>
+                        {booking.currency}
+                        {Number(booking.total_amount).toLocaleString()}
+                      </ThemedText>
+                    </View>
+                    <ThemedText style={styles.payDestinationHint}>Tap and hold a value to copy it.</ThemedText>
+                  </View>
+                )}
+                <TextInput
+                  style={styles.input}
+                  placeholder="GCash Reference Number"
+                  placeholderTextColor="#94a3b8"
+                  value={paymentReference}
+                  onChangeText={setPaymentReference}
+                />
+                <Pressable style={styles.secondaryButton} onPress={pickProof}>
+                  <Ionicons
+                    name={proofUri ? "checkmark-circle" : "camera-outline"}
+                    size={16}
+                    color={proofUri ? "#2E7D32" : Colors.primary}
+                  />
+                  <ThemedText style={styles.secondaryButtonText}>
+                    {proofUri ? "Receipt Attached" : "Attach Receipt Photo"}
+                  </ThemedText>
+                </Pressable>
+                <Pressable
+                  style={styles.submitButton}
+                  onPress={submitPayment}
+                  disabled={isSubmittingPayment}
+                >
+                  {isSubmittingPayment ? (
+                    <ActivityIndicator color={Colors.primary} />
+                  ) : (
+                    <ThemedText style={styles.submitButtonText}>Submit Payment</ThemedText>
+                  )}
+                </Pressable>
+              </>
             )}
-            <TextInput
-              style={styles.input}
-              placeholder="GCash Reference Number"
-              placeholderTextColor="#94a3b8"
-              value={paymentReference}
-              onChangeText={setPaymentReference}
-            />
-            <Pressable style={styles.secondaryButton} onPress={pickProof}>
-              <Ionicons
-                name={proofUri ? "checkmark-circle" : "camera-outline"}
-                size={16}
-                color={proofUri ? "#2E7D32" : Colors.primary}
-              />
-              <ThemedText style={styles.secondaryButtonText}>
-                {proofUri ? "Receipt Attached" : "Attach Receipt Photo"}
-              </ThemedText>
-            </Pressable>
-            <Pressable
-              style={styles.submitButton}
-              onPress={submitPayment}
-              disabled={isSubmittingPayment}
-            >
-              {isSubmittingPayment ? (
-                <ActivityIndicator color={Colors.primary} />
-              ) : (
-                <ThemedText style={styles.submitButtonText}>Submit Payment</ThemedText>
-              )}
-            </Pressable>
           </View>
         ) : booking.payment_status === "unpaid" && booking.booking_status !== "confirmed" ? (
           <View style={styles.noticeBox}>
