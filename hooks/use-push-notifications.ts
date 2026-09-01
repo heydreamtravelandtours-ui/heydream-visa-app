@@ -16,8 +16,27 @@ import * as Notifications from "expo-notifications";
 import { useRouter } from "expo-router";
 import * as secureStorage from "@/api/secure-storage";
 import * as api from "@/api/client";
+import { API_BASE_URL } from "@/api/config";
 import { useAuth } from "@/contexts/auth-context";
 import { resolveNotificationRoute } from "@/lib/notification-routing";
+
+// Known project ID from app.json, used only if Constants.expoConfig comes
+// back empty at runtime -- confirmed happening in production: registration
+// was silently no-op'ing with zero tokens ever reaching push_tokens, and
+// this early-return was the only step with no thrown error to explain why.
+const FALLBACK_PROJECT_ID = "db387261-f43b-49a9-b804-62f757e164f4";
+
+// Temporary -- see api/debug-log.php. Push failures here were previously
+// swallowed with zero visibility; this reports the real reason server-side
+// so it can be read without a device attached. Remove once push
+// registration is confirmed reliable in production.
+function reportPushDebug(message: string) {
+  fetch(`${API_BASE_URL}/visa/api/debug-log.php`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ message }),
+  }).catch(() => {});
+}
 
 export const PUSH_TOKEN_KEY = "heydream_visa_push_token";
 
@@ -33,8 +52,11 @@ Notifications.setNotificationHandler({
   }),
 });
 
+// Every early exit throws instead of silently returning, so the caller's
+// catch always has a real reason to report -- a bare `return` here previously
+// looked identical to success from the outside (no error, no token, no log).
 async function registerDeviceForPush() {
-  if (!Device.isDevice) return; // simulators/emulators can't get a real token
+  if (!Device.isDevice) throw new Error("not a physical device");
 
   const existing = await Notifications.getPermissionsAsync();
   let finalStatus = existing.status;
@@ -42,7 +64,7 @@ async function registerDeviceForPush() {
     const requested = await Notifications.requestPermissionsAsync();
     finalStatus = requested.status;
   }
-  if (finalStatus !== "granted") return;
+  if (finalStatus !== "granted") throw new Error(`permission not granted (status: ${finalStatus})`);
 
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync("default", {
@@ -51,14 +73,21 @@ async function registerDeviceForPush() {
     });
   }
 
-  const projectId = Constants.expoConfig?.extra?.eas?.projectId;
-  if (!projectId) return;
+  const projectId =
+    Constants.expoConfig?.extra?.eas?.projectId ||
+    (Constants as any).easConfig?.projectId ||
+    FALLBACK_PROJECT_ID;
+  if (!projectId) throw new Error("no projectId available from any source");
 
   const tokenResponse = await Notifications.getExpoPushTokenAsync({ projectId });
   const token = tokenResponse.data;
+  if (!token) throw new Error("getExpoPushTokenAsync returned an empty token");
 
   await secureStorage.setItem(PUSH_TOKEN_KEY, token);
-  await api.registerPushToken(token, Platform.OS);
+  const result = await api.registerPushToken(token, Platform.OS);
+  if (!result?.success) throw new Error(`registerPushToken API call failed: ${JSON.stringify(result)}`);
+
+  return token;
 }
 
 export function usePushNotifications() {
@@ -67,9 +96,9 @@ export function usePushNotifications() {
 
   useEffect(() => {
     if (!user) return;
-    registerDeviceForPush().catch(() => {
-      /* best-effort -- push is an enhancement, never block app usage */
-    });
+    registerDeviceForPush()
+      .then((token) => reportPushDebug(`push registered ok: ${token.slice(0, 24)}...`))
+      .catch((e: any) => reportPushDebug(`push register FAILED: ${e?.message || String(e)}`));
   }, [user]);
 
   // Registered once, not keyed on `user` -- a tap can cold-start the app
