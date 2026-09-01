@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "462077710045",
+    "project_id": "mywebsiteauth-5da8d",
+    "storage_bucket": "mywebsiteauth-5da8d.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:462077710045:android:3aae1a904892e83a67d534",
+        "android_client_info": {
+          "package_name": "com.heydreamtravel.visa"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "462077710045-1j3bq6f5cc55b80gt6ab9sh89tp23hkg.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyA4JsFd_1WQ8tVhvYfsYQXyNk09OQOZaFU"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "462077710045-1j3bq6f5cc55b80gt6ab9sh89tp23hkg.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

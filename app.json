@@ -27,7 +27,8 @@
         "INTERNET",
         "ACCESS_NETWORK_STATE"
       ],
-      "package": "com.heydreamtravel.visa"
+      "package": "com.heydreamtravel.visa",
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "output": "static",
