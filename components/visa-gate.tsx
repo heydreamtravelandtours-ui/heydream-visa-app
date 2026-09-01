@@ -1,25 +1,24 @@
 // components/visa-gate.tsx
-// Mirrors visa/index.php's "Who's applying?" direction gate exactly:
-// Filipino Traveling Abroad -> outbound catalog, Foreign Visitor to the
-// Philippines -> inbound catalog (visitor_visas table, see get-visa-list.php/
-// get-visa-details.php's direction param). Choice persisted the same way the
-// website does (localStorage there, AsyncStorage here) so a returning user
-// never sees this again -- BUT the website also keeps a permanent "switch"
-// pill in its hero (reopenDirectionGate() in visa/index.php) so the gate is
-// never a one-way door; the Home tab's pill mirrors that here. This context
-// (rather than a plain hook) exists so that pill, living deep in the tabs
-// navigator, can reopen the exact same gate instance the root layout renders.
+// Mirrors visa/index.php's "Who's applying?" direction gate: Filipino
+// Traveling Abroad -> outbound catalog, Foreign Visitor to the Philippines
+// -> inbound catalog (visitor_visas table, see get-visa-list.php/
+// get-visa-details.php's direction param). Unlike the website (which
+// persists the choice in localStorage indefinitely), this is deliberately
+// in-memory only -- the app is shared more often (a family member applying
+// for someone else on the same device), so a fresh cold start always asks
+// again, while just backgrounding/resuming the app keeps the answer. The
+// Home tab's switch pill (reopenGate) still works the same as before within
+// a session. This context (rather than a plain hook) exists so that pill,
+// living deep in the tabs navigator, can reopen the exact same gate
+// instance the root layout renders.
 
 import { Colors } from "@/constants/theme";
 import { Ionicons } from "@expo/vector-icons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Image } from "expo-image";
 import { StatusBar } from "expo-status-bar";
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useState } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-
-const GATE_CHOICE_KEY = "heydream_visa_gate_choice_v1";
 
 export type GateChoice = "ph_outbound" | "foreign_inbound";
 
@@ -33,22 +32,13 @@ interface GateContextType {
 const GateContext = createContext<GateContextType | undefined>(undefined);
 
 export function GateProvider({ children }: { children: React.ReactNode }) {
-  const [choice, setChoice] = useState<GateChoice | null | "unknown">("unknown");
-
-  useEffect(() => {
-    (async () => {
-      const stored = await AsyncStorage.getItem(GATE_CHOICE_KEY);
-      setChoice(stored === "ph_outbound" || stored === "foreign_inbound" ? stored : null);
-    })();
-  }, []);
+  const [choice, setChoice] = useState<GateChoice | null | "unknown">(null);
 
   const choosePhOutbound = async () => {
-    await AsyncStorage.setItem(GATE_CHOICE_KEY, "ph_outbound");
     setChoice("ph_outbound");
   };
 
   const chooseForeignInbound = async () => {
-    await AsyncStorage.setItem(GATE_CHOICE_KEY, "foreign_inbound");
     setChoice("foreign_inbound");
   };
 
