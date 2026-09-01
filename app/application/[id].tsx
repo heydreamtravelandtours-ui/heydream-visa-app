@@ -529,16 +529,23 @@ export default function ApplicationDetailScreen() {
                   value={paymentReference}
                   onChangeText={setPaymentReference}
                 />
-                <Pressable style={styles.secondaryButton} onPress={pickProof}>
-                  <Ionicons
-                    name={proofUri ? "checkmark-circle" : "camera-outline"}
-                    size={16}
-                    color={proofUri ? "#2E7D32" : Colors.primary}
-                  />
-                  <ThemedText style={styles.secondaryButtonText}>
-                    {proofUri ? "Receipt Attached" : "Attach Receipt Photo"}
-                  </ThemedText>
-                </Pressable>
+                <View style={styles.proofRow}>
+                  <Pressable style={[styles.secondaryButton, { flex: 1 }]} onPress={pickProof}>
+                    <Ionicons
+                      name={proofUri ? "checkmark-circle" : "camera-outline"}
+                      size={16}
+                      color={proofUri ? "#2E7D32" : Colors.primary}
+                    />
+                    <ThemedText style={styles.secondaryButtonText}>
+                      {proofUri ? "Receipt Attached" : "Attach Receipt Photo"}
+                    </ThemedText>
+                  </Pressable>
+                  {!!proofUri && (
+                    <Pressable style={styles.clearProofButton} onPress={() => setProofUri(null)}>
+                      <Ionicons name="close" size={16} color="#B00020" />
+                    </Pressable>
+                  )}
+                </View>
                 <Pressable
                   style={styles.submitButton}
                   onPress={submitPayment}
@@ -867,6 +874,18 @@ const styles = StyleSheet.create({
     backgroundColor: Colors.white,
   },
   secondaryButtonText: { color: Colors.primary, fontWeight: "700" },
+  proofRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  clearProofButton: {
+    marginTop: 8,
+    width: 44,
+    height: 44,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: "#FECACA",
+    backgroundColor: "#FEF2F2",
+    alignItems: "center",
+    justifyContent: "center",
+  },
   chatButton: { backgroundColor: Colors.primary, borderColor: Colors.primary, marginTop: 0 },
   chatButtonText: { color: Colors.white, fontWeight: "700" },
   contactRow: { flexDirection: "row", gap: 8, marginTop: 10 },
