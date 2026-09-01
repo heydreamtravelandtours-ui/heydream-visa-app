@@ -7,6 +7,7 @@ import { AuthProvider } from "@/contexts/auth-context";
 import { GateProvider, useGateChoice, VisaGate } from "@/components/visa-gate";
 import { Colors } from "@/constants/theme";
 import { useColorScheme } from "@/hooks/use-color-scheme";
+import { usePushNotifications } from "@/hooks/use-push-notifications";
 import {
   DarkTheme,
   DefaultTheme,
@@ -23,6 +24,7 @@ export const unstable_settings = {
 
 function GatedApp() {
   const { choice, choosePhOutbound, chooseForeignInbound } = useGateChoice();
+  usePushNotifications();
 
   if (choice === "unknown") {
     return (

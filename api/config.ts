@@ -70,6 +70,8 @@ export const API_ENDPOINTS = {
   // The visa/ proxies, not api/ directly -- they set HD_NOTIFICATIONS_VISA_ONLY
   // / HD_BOOKING_COUNT_VISA_ONLY so this app only ever sees visa-scoped rows.
   NOTIFICATIONS: `${API_BASE_URL}/visa/api/notifications-api.php`,
+  PUSH_TOKENS: `${API_BASE_URL}/visa/api/push-tokens-api.php`,
+  PAYMENT_SETTINGS: `${API_BASE_URL}/visa/api/get-payment-settings.php`,
   BOOKING_COUNT: `${API_BASE_URL}/visa/api/get-booking-count.php`,
   BOOKING_CHAT: `${API_BASE_URL}/visa/api/booking-chat.php`,
   // Incremental message + typing sync for a booking thread (bearer-auth

@@ -182,6 +182,28 @@ export function markAllNotificationsRead() {
   return apiPostForm(API_ENDPOINTS.NOTIFICATIONS, form);
 }
 
+export function registerPushToken(token: string, platform: string) {
+  return apiPostJson(API_ENDPOINTS.PUSH_TOKENS, { action: "register", token, platform });
+}
+
+export function unregisterPushToken(token: string) {
+  return apiPostJson(API_ENDPOINTS.PUSH_TOKENS, { action: "unregister", token });
+}
+
+export interface PaymentSettings {
+  gcash_number: string;
+  gcash_account_name: string;
+  paymaya_number: string;
+  paymaya_account_name: string;
+}
+
+// get-payment-settings.php echoes its fields flat (success + the four
+// settings), same shape as getNotifications()/getProfile() -- not nested
+// under a "data" key -- so the result doubles as ApiResult & PaymentSettings.
+export function getPaymentSettings(): Promise<ApiResult & Partial<PaymentSettings>> {
+  return apiGet(API_ENDPOINTS.PAYMENT_SETTINGS);
+}
+
 export function getBookingCount() {
   return apiGet(API_ENDPOINTS.BOOKING_COUNT);
 }

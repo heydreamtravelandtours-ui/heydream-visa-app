@@ -263,6 +263,7 @@ export default function ApplicationDetailScreen() {
   const [proofUri, setProofUri] = useState<string | null>(null);
   const [isSubmittingPayment, setIsSubmittingPayment] = useState(false);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  const [paymentSettings, setPaymentSettings] = useState<api.PaymentSettings | null>(null);
 
   const load = useCallback(async () => {
     const result = await api.getMyVisaBookings();
@@ -326,6 +327,23 @@ export default function ApplicationDetailScreen() {
   const paymentRejectionReason = lastPaymentRejection
     ? lastPaymentRejection.replace(/^\[Payment Rejected[^\]]*\]\s*/, "")
     : null;
+
+  // Fetched only once payment becomes actionable -- no need to hit the
+  // network for it on every visit to a screen that's usually just showing
+  // status, not asking for a payment.
+  useEffect(() => {
+    if (!canPay) return;
+    api.getPaymentSettings().then((result) => {
+      if (result.success && result.gcash_number) {
+        setPaymentSettings({
+          gcash_number: result.gcash_number,
+          gcash_account_name: result.gcash_account_name || "",
+          paymaya_number: result.paymaya_number || "",
+          paymaya_account_name: result.paymaya_account_name || "",
+        });
+      }
+    });
+  }, [canPay]);
 
   const pickProof = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -465,6 +483,33 @@ export default function ApplicationDetailScreen() {
             <ThemedText style={styles.helperText}>
               Pay via GCash, then enter the reference number and attach your receipt.
             </ThemedText>
+            {!!paymentSettings && (
+              <View style={styles.payDestinationCard}>
+                <View style={styles.payDestinationQr}>
+                  <Ionicons name="qr-code-outline" size={40} color="#94a3b8" />
+                </View>
+                <View style={styles.payDestinationRow}>
+                  <ThemedText style={styles.payDestinationLabel}>GCash Number</ThemedText>
+                  <ThemedText selectable style={styles.payDestinationValue}>
+                    {paymentSettings.gcash_number}
+                  </ThemedText>
+                </View>
+                <View style={styles.payDestinationRow}>
+                  <ThemedText style={styles.payDestinationLabel}>Account Name</ThemedText>
+                  <ThemedText selectable style={styles.payDestinationValue}>
+                    {paymentSettings.gcash_account_name}
+                  </ThemedText>
+                </View>
+                <View style={styles.payDestinationRow}>
+                  <ThemedText style={styles.payDestinationLabel}>Amount</ThemedText>
+                  <ThemedText style={[styles.payDestinationValue, styles.payDestinationAmount]}>
+                    {booking.currency}
+                    {Number(booking.total_amount).toLocaleString()}
+                  </ThemedText>
+                </View>
+                <ThemedText style={styles.payDestinationHint}>Tap and hold a value to copy it.</ThemedText>
+              </View>
+            )}
             <TextInput
               style={styles.input}
               placeholder="GCash Reference Number"
@@ -747,6 +792,43 @@ const styles = StyleSheet.create({
   requirementDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: Colors.accent, marginTop: 7 },
   requirement: { flex: 1, color: Colors.text, lineHeight: 20 },
   helperText: { color: Colors.text, lineHeight: 20, marginBottom: 12 },
+  payDestinationCard: {
+    backgroundColor: "#f8fafc",
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    borderRadius: 14,
+    padding: 16,
+    marginBottom: 14,
+    alignItems: "center",
+  },
+  payDestinationQr: {
+    width: 64,
+    height: 64,
+    borderRadius: 12,
+    backgroundColor: Colors.white,
+    borderWidth: 1,
+    borderColor: "#e2e8f0",
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 12,
+  },
+  payDestinationRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    alignItems: "center",
+    width: "100%",
+    paddingVertical: 5,
+  },
+  payDestinationLabel: { color: Colors.text, fontSize: 12.5 },
+  payDestinationValue: { color: Colors.dark, fontWeight: "700", fontSize: 14 },
+  payDestinationAmount: { color: Colors.accent },
+  payDestinationHint: {
+    color: "#94a3b8",
+    fontSize: 11,
+    marginTop: 8,
+    textAlign: "center",
+  },
   input: {
     borderWidth: 1,
     borderColor: "#e2e8f0",

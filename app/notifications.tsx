@@ -7,6 +7,7 @@ import { ThemedText } from "@/components/themed-text";
 import { ThemedView } from "@/components/themed-view";
 import { Colors } from "@/constants/theme";
 import * as api from "@/api/client";
+import { resolveNotificationRoute } from "@/lib/notification-routing";
 import { Ionicons } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
@@ -96,16 +97,9 @@ export default function NotificationsScreen() {
       setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, is_read: 1 } : x)));
       api.markNotificationRead(n.id);
     }
-    if (n.booking_number) {
-      // Document-related notifications (missing_documents, document_rejected,
-      // additional_documents_requested) used to always land on the general
-      // Application Details screen, requiring an extra "Manage Documents"
-      // tap to get anywhere useful -- jump straight there instead.
-      if (n.type.includes("document")) {
-        router.push(`/documents/upload?bookingNumber=${n.booking_number}`);
-      } else {
-        router.push(`/application/${n.booking_number}`);
-      }
+    const route = resolveNotificationRoute(n);
+    if (route) {
+      router.push(route as any);
     }
   };
 

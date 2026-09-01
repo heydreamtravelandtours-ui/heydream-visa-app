@@ -12,6 +12,10 @@ import * as secureStorage from "../api/secure-storage";
 import * as api from "../api/client";
 
 const USER_KEY = "heydream_visa_user";
+// Same key hooks/use-push-notifications.ts writes to -- duplicated (not
+// imported) to avoid a circular import, since that hook itself calls
+// useAuth().
+const PUSH_TOKEN_KEY = "heydream_visa_push_token";
 
 export interface VisaUser {
   id: number | string;
@@ -100,6 +104,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   const logout = async () => {
+    // Best-effort: a stale token left registered on a shared/reinstalled
+    // device would otherwise keep receiving this account's pushes after
+    // logout.
+    const pushToken = await secureStorage.getItem(PUSH_TOKEN_KEY);
+    if (pushToken) {
+      api.unregisterPushToken(pushToken).catch(() => {});
+      await secureStorage.removeItem(PUSH_TOKEN_KEY);
+    }
     await api.clearToken();
     await secureStorage.removeItem(USER_KEY);
     setUser(null);
