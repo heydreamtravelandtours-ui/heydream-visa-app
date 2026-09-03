@@ -48,6 +48,7 @@ const BAD_TYPES = new Set([
   "booking_auto_cancelled",
   "booking_cancelled",
   "payment_rejected",
+  "payment_overdue",
   "inquiry_cancelled",
   "visa_rejected",
   "visa_requested",

@@ -24,7 +24,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import * as WebBrowser from "expo-web-browser";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, View } from "react-native";
 
 interface UploadedDoc {
@@ -59,12 +59,6 @@ export default function UploadDocumentsScreen() {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
-
-  const scrollRef = useRef<ScrollView>(null);
-  const uploadSectionY = useRef(0);
-  const scrollToUpload = () => {
-    scrollRef.current?.scrollTo({ y: Math.max(0, uploadSectionY.current - 12), animated: true });
-  };
 
   const load = useCallback(async () => {
     const [docsResult, bookingsResult] = await Promise.all([
@@ -313,22 +307,86 @@ export default function UploadDocumentsScreen() {
     <ThemedView style={styles.container}>
       <StatusBar style="light" />
       <ScreenHeader title="Documents" />
-      <ScrollView ref={scrollRef} contentContainerStyle={styles.scrollContent}>
+      <ScrollView contentContainerStyle={styles.scrollContent}>
         <ThemedText style={styles.subtitle}>Application {bookingNumber}</ThemedText>
 
         {requirements.length > 0 && (
           <View style={styles.neededBox}>
             <ThemedText style={styles.neededTitle}>Documents needed:</ThemedText>
             <ThemedText style={styles.neededText}>{requirements.join(", ")}</ThemedText>
-            <Pressable
-              style={({ pressed }) => [styles.neededUploadBtn, pressed && styles.neededUploadBtnPressed]}
-              onPress={scrollToUpload}
-            >
-              <Ionicons name="cloud-upload-outline" size={15} color={Colors.white} />
-              <ThemedText style={styles.neededUploadBtnText}>Upload a document</ThemedText>
-            </Pressable>
           </View>
         )}
+
+        <View style={styles.section}>
+          <ThemedText style={styles.sectionTitle}>Upload a Document</ThemedText>
+          {requirements.length === 0 ? (
+            <ThemedText style={styles.subtitle}>
+              No specific document list for this visa -- an agent will contact you if anything is
+              needed.
+            </ThemedText>
+          ) : (
+            requirements.map((label) => (
+              <View key={label}>
+                {travelerCount > 1 && <ThemedText style={styles.pickGroupTitle}>{label}</ThemedText>}
+                {slots
+                  .filter((s) => s.label === label)
+                  .map((slot) => {
+                    const isUploading = uploadingKey === slot.key;
+                    const existingDoc = docForSlot(slot);
+                    const isRejected = existingDoc?.status === "rejected";
+                    const isSatisfied = !!existingDoc && !isRejected;
+                    return (
+                      <Pressable
+                        key={slot.key}
+                        style={({ pressed }) => [
+                          styles.pickCard,
+                          isSatisfied && styles.pickCardSatisfied,
+                          pressed && styles.pickCardPressed,
+                        ]}
+                        onPress={() => chooseSource(slot)}
+                        disabled={isUploading}
+                      >
+                        <View
+                          style={[styles.pickIconWrap, isSatisfied && styles.pickIconWrapSatisfied]}
+                        >
+                          {isUploading ? (
+                            <ActivityIndicator color={Colors.primary} size="small" />
+                          ) : (
+                            <Ionicons
+                              name={isSatisfied ? "checkmark-circle" : "camera-outline"}
+                              size={19}
+                              color={isSatisfied ? "#16A34A" : Colors.primary}
+                            />
+                          )}
+                        </View>
+                        <View style={{ flex: 1 }}>
+                          <ThemedText style={styles.pickCardLabel}>
+                            {travelerCount > 1 ? slot.travelerLabel : label}
+                          </ThemedText>
+                          <ThemedText style={styles.pickCardHint}>
+                            {isUploading
+                              ? "Uploading…"
+                              : isRejected
+                                ? "Rejected — tap to re-upload"
+                                : isSatisfied
+                                  ? "Uploaded — tap to replace"
+                                  : "Tap to take a photo or choose a file"}
+                          </ThemedText>
+                        </View>
+                        {!isUploading && (
+                          <Ionicons
+                            name={isSatisfied ? "sync-outline" : "add-circle"}
+                            size={20}
+                            color={isSatisfied ? Colors.text : Colors.primary}
+                          />
+                        )}
+                      </Pressable>
+                    );
+                  })}
+              </View>
+            ))
+          )}
+        </View>
 
         <View style={styles.section}>
           <ThemedText style={styles.sectionTitle}>
@@ -338,7 +396,7 @@ export default function UploadDocumentsScreen() {
             <View style={styles.emptyBox}>
               <Ionicons name="file-tray-outline" size={22} color={Colors.text} />
               <ThemedText style={styles.emptyText}>
-                No documents uploaded yet. Use the requirements below to get started.
+                No documents uploaded yet. Use &quot;Upload a Document&quot; above to get started.
               </ThemedText>
             </View>
           ) : (
@@ -431,82 +489,6 @@ export default function UploadDocumentsScreen() {
           </View>
         )}
 
-        <View
-          style={styles.section}
-          onLayout={(e) => {
-            uploadSectionY.current = e.nativeEvent.layout.y;
-          }}
-        >
-          <ThemedText style={styles.sectionTitle}>Upload a Document</ThemedText>
-          {requirements.length === 0 ? (
-            <ThemedText style={styles.subtitle}>
-              No specific document list for this visa -- an agent will contact you if anything is
-              needed.
-            </ThemedText>
-          ) : (
-            requirements.map((label) => (
-              <View key={label}>
-                {travelerCount > 1 && <ThemedText style={styles.pickGroupTitle}>{label}</ThemedText>}
-                {slots
-                  .filter((s) => s.label === label)
-                  .map((slot) => {
-                    const isUploading = uploadingKey === slot.key;
-                    const existingDoc = docForSlot(slot);
-                    const isRejected = existingDoc?.status === "rejected";
-                    const isSatisfied = !!existingDoc && !isRejected;
-                    return (
-                      <Pressable
-                        key={slot.key}
-                        style={({ pressed }) => [
-                          styles.pickCard,
-                          isSatisfied && styles.pickCardSatisfied,
-                          pressed && styles.pickCardPressed,
-                        ]}
-                        onPress={() => chooseSource(slot)}
-                        disabled={isUploading}
-                      >
-                        <View
-                          style={[styles.pickIconWrap, isSatisfied && styles.pickIconWrapSatisfied]}
-                        >
-                          {isUploading ? (
-                            <ActivityIndicator color={Colors.primary} size="small" />
-                          ) : (
-                            <Ionicons
-                              name={isSatisfied ? "checkmark-circle" : "camera-outline"}
-                              size={19}
-                              color={isSatisfied ? "#16A34A" : Colors.primary}
-                            />
-                          )}
-                        </View>
-                        <View style={{ flex: 1 }}>
-                          <ThemedText style={styles.pickCardLabel}>
-                            {travelerCount > 1 ? slot.travelerLabel : label}
-                          </ThemedText>
-                          <ThemedText style={styles.pickCardHint}>
-                            {isUploading
-                              ? "Uploading…"
-                              : isRejected
-                                ? "Rejected — tap to re-upload"
-                                : isSatisfied
-                                  ? "Uploaded — tap to replace"
-                                  : "Tap to take a photo or choose a file"}
-                          </ThemedText>
-                        </View>
-                        {!isUploading && (
-                          <Ionicons
-                            name={isSatisfied ? "sync-outline" : "add-circle"}
-                            size={20}
-                            color={isSatisfied ? Colors.text : Colors.primary}
-                          />
-                        )}
-                      </Pressable>
-                    );
-                  })}
-              </View>
-            ))
-          )}
-        </View>
-
         <Pressable
           style={styles.doneButton}
           onPress={() => router.replace(`/application/${bookingNumber}`)}
@@ -528,19 +510,6 @@ const styles = StyleSheet.create({
   neededBox: { backgroundColor: "#EFF6FF", borderRadius: 12, padding: 14, marginBottom: 20 },
   neededTitle: { color: Colors.primary, fontWeight: "800", fontSize: 13, marginBottom: 4 },
   neededText: { color: Colors.dark, fontSize: 13, lineHeight: 19 },
-  neededUploadBtn: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 6,
-    marginTop: 12,
-    backgroundColor: Colors.primary,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-  },
-  neededUploadBtnPressed: { opacity: 0.85 },
-  neededUploadBtnText: { color: Colors.white, fontSize: 12.5, fontWeight: "700" },
   section: { marginBottom: 22 },
   sectionTitle: { fontSize: 15, fontWeight: "800", color: Colors.dark, marginBottom: 10 },
   emptyBox: {
