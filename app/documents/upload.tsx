@@ -59,6 +59,9 @@ export default function UploadDocumentsScreen() {
   const [uploadingKey, setUploadingKey] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [viewerUri, setViewerUri] = useState<string | null>(null);
+  // Per-applicant collapse state for the grouped Uploaded Documents list --
+  // empty = every group expanded (the default at first sight).
+  const [collapsedApplicants, setCollapsedApplicants] = useState<Record<number, boolean>>({});
 
   const load = useCallback(async () => {
     const [docsResult, bookingsResult] = await Promise.all([
@@ -133,6 +136,69 @@ export default function UploadDocumentsScreen() {
       travelers: missingSlots.filter((s) => s.label === label).map((s) => s.travelerLabel).filter(Boolean),
     }))
     .filter((g) => missingSlots.some((s) => s.label === g.label));
+
+  // Uploaded documents grouped by applicant (only meaningful when there's
+  // more than one traveller -- otherwise it's a flat list).
+  const docGroups = (() => {
+    if (travelerCount <= 1) return [{ index: 1, name: "", docs: documents }];
+    const byIndex = new Map<number, UploadedDoc[]>();
+    for (const d of documents) {
+      const idx = d.traveler_index ? Number(d.traveler_index) : 1;
+      if (!byIndex.has(idx)) byIndex.set(idx, []);
+      byIndex.get(idx)!.push(d);
+    }
+    return Array.from({ length: travelerCount }, (_, i) => i + 1)
+      .filter((idx) => byIndex.has(idx))
+      .map((idx) => ({ index: idx, name: travelerLabel(idx), docs: byIndex.get(idx)! }));
+  })();
+
+  const renderDocRow = (doc: UploadedDoc) => {
+    const isRejected = doc.status === "rejected";
+    const isPdf = /\.pdf$/i.test(doc.file_name);
+    const docTravelerName = doc.traveler_index ? travelerLabel(Number(doc.traveler_index)) : "";
+    const docTag =
+      travelerCount > 1
+        ? [docTravelerName, doc.document_label].filter(Boolean).join(" — ")
+        : doc.document_label;
+    return (
+      <View key={doc.id} style={[styles.docRow, isRejected ? styles.docRowRejected : styles.docRowOk]}>
+        <Ionicons name={isPdf ? "document-text" : "image"} size={18} color={isRejected ? "#DC2626" : "#22C55E"} />
+        <View style={{ flex: 1 }}>
+          {!!docTag && (
+            <ThemedText style={[styles.docLabel, isRejected ? styles.docLabelRejected : styles.docLabelOk]}>
+              {docTag}
+            </ThemedText>
+          )}
+          <ThemedText
+            style={[styles.docFileName, isRejected ? styles.docFileNameRejected : styles.docFileNameOk]}
+            numberOfLines={1}
+          >
+            {doc.file_name}
+          </ThemedText>
+          {isRejected && (
+            <ThemedText style={styles.docRejectedNote}>
+              <Ionicons name="warning" size={11} color="#B91C1C" /> Rejected
+              {doc.rejection_reason ? `: ${doc.rejection_reason}` : ""} -- please upload a replacement
+            </ThemedText>
+          )}
+        </View>
+        <Pressable
+          style={[styles.docActionBtn, isRejected ? styles.docActionBtnRejected : styles.docActionBtnOk]}
+          onPress={() => openDoc(doc)}
+        >
+          <Ionicons name="eye" size={13} color={isRejected ? "#B91C1C" : "#15803D"} />
+          <ThemedText style={[styles.docActionText, { color: isRejected ? "#B91C1C" : "#15803D" }]}>View</ThemedText>
+        </Pressable>
+        <Pressable style={styles.docDeleteBtn} onPress={() => handleDelete(doc)} disabled={deletingId === doc.id}>
+          {deletingId === doc.id ? (
+            <ActivityIndicator size="small" color="#DC2626" />
+          ) : (
+            <Ionicons name="trash" size={13} color="#DC2626" />
+          )}
+        </Pressable>
+      </View>
+    );
+  };
 
   const uploadPicked = async (
     slot: DocSlot,
@@ -341,21 +407,26 @@ export default function UploadDocumentsScreen() {
                         style={({ pressed }) => [
                           styles.pickCard,
                           isSatisfied && styles.pickCardSatisfied,
+                          isRejected && styles.pickCardRejected,
                           pressed && styles.pickCardPressed,
                         ]}
                         onPress={() => chooseSource(slot)}
                         disabled={isUploading}
                       >
                         <View
-                          style={[styles.pickIconWrap, isSatisfied && styles.pickIconWrapSatisfied]}
+                          style={[
+                            styles.pickIconWrap,
+                            isSatisfied && styles.pickIconWrapSatisfied,
+                            isRejected && styles.pickIconWrapRejected,
+                          ]}
                         >
                           {isUploading ? (
                             <ActivityIndicator color={Colors.primary} size="small" />
                           ) : (
                             <Ionicons
-                              name={isSatisfied ? "checkmark-circle" : "camera-outline"}
+                              name={isRejected ? "alert-circle" : isSatisfied ? "checkmark-circle" : "camera-outline"}
                               size={19}
-                              color={isSatisfied ? "#16A34A" : Colors.primary}
+                              color={isRejected ? "#DC2626" : isSatisfied ? "#16A34A" : Colors.primary}
                             />
                           )}
                         </View>
@@ -363,11 +434,11 @@ export default function UploadDocumentsScreen() {
                           <ThemedText style={styles.pickCardLabel}>
                             {travelerCount > 1 ? slot.travelerLabel : label}
                           </ThemedText>
-                          <ThemedText style={styles.pickCardHint}>
+                          <ThemedText style={[styles.pickCardHint, isRejected && styles.pickCardHintRejected]}>
                             {isUploading
                               ? "Uploading…"
                               : isRejected
-                                ? "Rejected — tap to re-upload"
+                                ? "Rejected — tap to upload a replacement"
                                 : isSatisfied
                                   ? "Uploaded — tap to replace"
                                   : "Tap to take a photo or choose a file"}
@@ -375,9 +446,9 @@ export default function UploadDocumentsScreen() {
                         </View>
                         {!isUploading && (
                           <Ionicons
-                            name={isSatisfied ? "sync-outline" : "add-circle"}
+                            name={isRejected ? "refresh-circle" : isSatisfied ? "sync-outline" : "add-circle"}
                             size={20}
-                            color={isSatisfied ? Colors.text : Colors.primary}
+                            color={isRejected ? "#DC2626" : isSatisfied ? Colors.text : Colors.primary}
                           />
                         )}
                       </Pressable>
@@ -399,69 +470,39 @@ export default function UploadDocumentsScreen() {
                 No documents uploaded yet. Use &quot;Upload a Document&quot; above to get started.
               </ThemedText>
             </View>
+          ) : travelerCount <= 1 ? (
+            documents.map(renderDocRow)
           ) : (
-            documents.map((doc) => {
-              const isRejected = doc.status === "rejected";
-              const isPdf = /\.pdf$/i.test(doc.file_name);
-              const docTravelerName = doc.traveler_index
-                ? travelerLabel(Number(doc.traveler_index))
-                : "";
-              const docTag =
-                travelerCount > 1
-                  ? [docTravelerName, doc.document_label].filter(Boolean).join(" — ")
-                  : doc.document_label;
+            docGroups.map((group) => {
+              const collapsed = !!collapsedApplicants[group.index];
+              const rejectedCount = group.docs.filter((d) => d.status === "rejected").length;
               return (
-                <View
-                  key={doc.id}
-                  style={[styles.docRow, isRejected ? styles.docRowRejected : styles.docRowOk]}
-                >
-                  <Ionicons
-                    name={isPdf ? "document-text" : "image"}
-                    size={18}
-                    color={isRejected ? "#DC2626" : "#22C55E"}
-                  />
-                  <View style={{ flex: 1 }}>
-                    {!!docTag && (
-                      <ThemedText
-                        style={[styles.docLabel, isRejected ? styles.docLabelRejected : styles.docLabelOk]}
-                      >
-                        {docTag}
-                      </ThemedText>
-                    )}
-                    <ThemedText
-                      style={[styles.docFileName, isRejected ? styles.docFileNameRejected : styles.docFileNameOk]}
-                      numberOfLines={1}
-                    >
-                      {doc.file_name}
-                    </ThemedText>
-                    {isRejected && (
-                      <ThemedText style={styles.docRejectedNote}>
-                        <Ionicons name="warning" size={11} color="#B91C1C" /> Rejected
-                        {doc.rejection_reason ? `: ${doc.rejection_reason}` : ""} -- please upload a
-                        replacement
-                      </ThemedText>
-                    )}
-                  </View>
+                <View key={group.index} style={styles.applicantGroup}>
                   <Pressable
-                    style={[styles.docActionBtn, isRejected ? styles.docActionBtnRejected : styles.docActionBtnOk]}
-                    onPress={() => openDoc(doc)}
+                    style={styles.applicantHeader}
+                    onPress={() =>
+                      setCollapsedApplicants((prev) => ({ ...prev, [group.index]: !prev[group.index] }))
+                    }
                   >
-                    <Ionicons name="eye" size={13} color={isRejected ? "#B91C1C" : "#15803D"} />
-                    <ThemedText style={[styles.docActionText, { color: isRejected ? "#B91C1C" : "#15803D" }]}>
-                      View
+                    <Ionicons
+                      name={collapsed ? "chevron-forward" : "chevron-down"}
+                      size={16}
+                      color={Colors.primary}
+                    />
+                    <ThemedText style={styles.applicantHeaderName}>
+                      {group.name || `Applicant ${group.index}`}
                     </ThemedText>
-                  </Pressable>
-                  <Pressable
-                    style={styles.docDeleteBtn}
-                    onPress={() => handleDelete(doc)}
-                    disabled={deletingId === doc.id}
-                  >
-                    {deletingId === doc.id ? (
-                      <ActivityIndicator size="small" color="#DC2626" />
-                    ) : (
-                      <Ionicons name="trash" size={13} color="#DC2626" />
+                    <View style={styles.applicantCountPill}>
+                      <ThemedText style={styles.applicantCountText}>{group.docs.length}</ThemedText>
+                    </View>
+                    {rejectedCount > 0 && (
+                      <View style={[styles.applicantCountPill, styles.applicantCountPillBad]}>
+                        <Ionicons name="warning" size={10} color="#B91C1C" />
+                        <ThemedText style={styles.applicantCountTextBad}>{rejectedCount}</ThemedText>
+                      </View>
                     )}
                   </Pressable>
+                  {!collapsed && <View style={styles.applicantBody}>{group.docs.map(renderDocRow)}</View>}
                 </View>
               );
             })
@@ -524,6 +565,37 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   emptyText: { flex: 1, color: Colors.text, fontSize: 12.5, lineHeight: 18 },
+  applicantGroup: {
+    borderWidth: 1,
+    borderColor: "#E2E8F0",
+    borderRadius: 12,
+    marginBottom: 10,
+    overflow: "hidden",
+  },
+  applicantHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: "#F8FAFC",
+  },
+  applicantHeaderName: { flex: 1, fontSize: 13.5, fontWeight: "800", color: Colors.dark },
+  applicantCountPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    minWidth: 22,
+    height: 20,
+    paddingHorizontal: 7,
+    borderRadius: 999,
+    backgroundColor: "#E2E8F0",
+    justifyContent: "center",
+  },
+  applicantCountPillBad: { backgroundColor: "#FEE2E2" },
+  applicantCountText: { fontSize: 11, fontWeight: "800", color: "#475569" },
+  applicantCountTextBad: { fontSize: 11, fontWeight: "800", color: "#B91C1C" },
+  applicantBody: { padding: 10, gap: 8 },
   docRow: {
     flexDirection: "row",
     alignItems: "center",
@@ -596,6 +668,7 @@ const styles = StyleSheet.create({
   },
   pickCardPressed: { opacity: 0.7 },
   pickCardSatisfied: { borderStyle: "solid", borderColor: "#BBF7D0", backgroundColor: "#F0FDF4" },
+  pickCardRejected: { borderStyle: "solid", borderColor: "#FECACA", backgroundColor: "#FEF2F2" },
   pickIconWrap: {
     width: 36,
     height: 36,
@@ -605,6 +678,8 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   pickIconWrapSatisfied: { backgroundColor: "#DCFCE7" },
+  pickIconWrapRejected: { backgroundColor: "#FEE2E2" },
+  pickCardHintRejected: { color: "#B91C1C", fontWeight: "600" },
   pickCardLabel: { fontSize: 13.5, fontWeight: "700", color: Colors.dark },
   pickCardHint: { fontSize: 11.5, color: Colors.text, marginTop: 1 },
   doneButton: {

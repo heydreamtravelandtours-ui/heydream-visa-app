@@ -583,17 +583,22 @@ export default function ApplicationDetailScreen() {
                 )}
                 {!!methodInfo && (
                   <View style={styles.payDestinationCard}>
-                    <View style={styles.payDestinationQr}>
-                      {methodInfo.qr ? (
+                    {methodInfo.qr ? (
+                      <Pressable
+                        style={styles.payDestinationQr}
+                        onPress={() => methodInfo.qr && setViewerUri(methodInfo.qr)}
+                      >
                         <Image
                           source={{ uri: methodInfo.qr }}
                           style={{ width: "100%", height: "100%", borderRadius: 10 }}
                           contentFit="contain"
                         />
-                      ) : (
+                      </Pressable>
+                    ) : (
+                      <View style={styles.payDestinationQr}>
                         <Ionicons name="qr-code-outline" size={40} color="#94a3b8" />
-                      )}
-                    </View>
+                      </View>
+                    )}
                     {!!methodInfo.bankName && (
                       <View style={styles.payDestinationRow}>
                         <ThemedText style={styles.payDestinationLabel}>Bank</ThemedText>
